@@ -5,6 +5,16 @@ All notable changes to Newspaparr will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2025-08-07
+
+### Fixed
+- Timezone-aware scheduling: renewals now scheduled for exact expiration time + 1 minute
+- Expiration date extraction properly handles user timezone
+- All datetime storage and comparisons use UTC
+
+### Added
+- python-dateutil dependency for robust date parsing
+
 ## [0.5.1] - 2025-08-07
 
 ### Changed

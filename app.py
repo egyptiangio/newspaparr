@@ -33,7 +33,7 @@ from library_adapters import LibraryAdapterFactory
 from renewal_engine import RenewalEngine
 
 # Application version
-__version__ = '0.5.1'
+__version__ = '0.5.2'
 
 # Validate configuration at startup
 if __name__ == '__main__':
@@ -845,15 +845,35 @@ def schedule_account_renewal(account):
     except:
         pass
     
-    scheduler.add_job(
-        func=run_account_renewal,
-        trigger=IntervalTrigger(hours=account.renewal_hours),
-        id=job_id,
-        args=[account.id],
-        replace_existing=True
-    )
-    
-    logger.info(f"Scheduled renewal for account {account.name} ({account.newspaper_type.upper()}) every {account.renewal_hours} hours")
+    # If we have a next_renewal date, schedule for that specific time
+    if account.next_renewal:
+        from apscheduler.triggers.date import DateTrigger
+        import pytz
+        
+        # Ensure next_renewal is timezone-aware (stored as UTC)
+        if account.next_renewal.tzinfo is None:
+            next_run = pytz.UTC.localize(account.next_renewal)
+        else:
+            next_run = account.next_renewal
+        
+        scheduler.add_job(
+            func=run_account_renewal,
+            trigger=DateTrigger(run_date=next_run),
+            id=job_id,
+            args=[account.id],
+            replace_existing=True
+        )
+        logger.info(f"📅 Scheduled renewal for {account.name} ({account.newspaper_type.upper()}) at {next_run}")
+    else:
+        # Fallback to interval-based scheduling
+        scheduler.add_job(
+            func=run_account_renewal,
+            trigger=IntervalTrigger(hours=account.renewal_hours),
+            id=job_id,
+            args=[account.id],
+            replace_existing=True
+        )
+        logger.info(f"⏰ Scheduled renewal for {account.name} ({account.newspaper_type.upper()}) every {account.renewal_hours} hours")
 
 def run_account_renewal(account_id):
     """Run renewal for a specific account (called by scheduler)"""

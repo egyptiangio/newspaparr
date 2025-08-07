@@ -847,6 +847,7 @@ Timeout: {self.timeout}s
             
             # Look for common expiration patterns
             import re
+            import pytz
             
             # Patterns like "expires on March 15, 2024" or "until 03/15/2024"
             date_patterns = [
@@ -857,6 +858,10 @@ Timeout: {self.timeout}s
                 r'next\s+billing:?\s*([a-z]+ \d{1,2},? \d{4})'
             ]
             
+            # Get timezone from environment
+            tz_name = os.environ.get('TZ', 'America/New_York')
+            local_tz = pytz.timezone(tz_name)
+            
             for pattern in date_patterns:
                 matches = re.findall(pattern, page_source)
                 if matches:
@@ -864,13 +869,19 @@ Timeout: {self.timeout}s
                     try:
                         # Try to parse the date
                         from dateutil import parser
+                        # Parse as local time and make timezone-aware
                         expiration_date = parser.parse(date_str)
+                        if expiration_date.tzinfo is None:
+                            expiration_date = local_tz.localize(expiration_date)
+                        
+                        # Convert to UTC for storage
+                        expiration_date_utc = expiration_date.astimezone(pytz.UTC)
                         
                         # If it's in the past, probably wrong - add a year
-                        if expiration_date < datetime.now():
-                            expiration_date = expiration_date.replace(year=expiration_date.year + 1)
+                        if expiration_date_utc < datetime.now(pytz.UTC):
+                            expiration_date_utc = expiration_date_utc.replace(year=expiration_date_utc.year + 1)
                         
-                        return expiration_date
+                        return expiration_date_utc
                     except:
                         continue
                         

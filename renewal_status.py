@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Optional, Tuple
 import re
 from datetime import datetime
+from date_extractor import DateExtractor
 
 
 class RenewalStatus(Enum):
@@ -166,21 +167,9 @@ class StateDetector:
     @staticmethod
     def _extract_expiration_date(text: str) -> Optional[str]:
         """Extract expiration date from text if present"""
-        # Common date patterns
-        date_patterns = [
-            r"expires?\s+(?:on\s+)?([A-Za-z]+ \d{1,2}(?:st|nd|rd|th)?,?\s+\d{4})",
-            r"expires?\s+(?:on\s+)?(\d{1,2}/\d{1,2}/\d{2,4})",
-            r"expires?\s+(?:on\s+)?(\d{4}-\d{2}-\d{2})",
-            r"valid\s+until\s+([A-Za-z]+ \d{1,2}(?:st|nd|rd|th)?,?\s+\d{4})",
-            r"([A-Za-z]+ \d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+[AP]M)"
-        ]
-        
-        for pattern in date_patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                return match.group(1)
-        
-        return None
+        # Use unified extractor to get both datetime and display string
+        _, display_date = DateExtractor.extract_expiration(text, "StateDetector")
+        return display_date
 
 
 def determine_renewal_state(page_text: str,

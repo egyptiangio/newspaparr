@@ -19,6 +19,7 @@ from captcha_solver import CaptchaSolver
 from error_handling import StandardizedLogger
 from browser_config import CAPSOLVER_USER_AGENT
 from state_detector import StateDetector, check_current_state
+from date_extractor import DateExtractor
 
 logger = StandardizedLogger(__name__)
 
@@ -780,8 +781,10 @@ class RenewalEngine:
             # Determine success based on state
             success = state in ["SUCCESS", "SUCCESS_WITH_WARNING"]
             
-            # Extract expiration date if available
-            expiration_datetime = self._extract_expiration_date(driver, newspaper_type)
+            # Extract expiration date if available using unified extractor
+            logger.info(f"🔍 Attempting to extract expiration date for {newspaper_type}...")
+            expiration_datetime, display_date = DateExtractor.extract_expiration_from_driver(driver, newspaper_type)
+            logger.info(f"🔍 Expiration extraction result: {expiration_datetime} (display: {display_date})")
             
             # Log the result with appropriate emoji based on state
             if state == "SUCCESS":
@@ -838,114 +841,6 @@ class RenewalEngine:
         except Exception as e:
             logger.error(f"Error during screenshot cleanup: {e}")
     
-    def _extract_expiration_date(self, driver, newspaper_type: str) -> Optional[datetime]:
-        """Extract expiration date from page content"""
-        try:
-            page_source = driver.page_source
-            
-            # Debug: Log a snippet of the page to see what we're searching
-            logger.debug(f"Searching for expiration in page (first 500 chars of relevant section)...")
-            
-            # Look for text containing 'expire' to debug
-            if 'expire' in page_source.lower():
-                expire_index = page_source.lower().index('expire')
-                snippet = page_source[max(0, expire_index-50):min(len(page_source), expire_index+200)]
-                logger.info(f"📋 Found 'expire' in page: ...{snippet}...")
-            
-            # Look for common expiration patterns
-            import re
-            import pytz
-            
-            # Patterns with time (higher priority) - using case-insensitive flag
-            datetime_patterns = [
-                # "August 7th, 2025 at 10:12 PM"
-                r'([A-Za-z]+ \d{1,2}(?:st|nd|rd|th)?,? \d{4}\s+at\s+\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)',
-                # "expires on March 15, 2024 at 11:59 PM"
-                r'expires?\s+(?:on\s+)?([A-Za-z]+ \d{1,2},? \d{4}\s+at\s+\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)',
-                # "valid until 03/15/2024 11:59 PM"
-                r'(?:valid|active)\s+(?:through|until)\s+(\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)',
-            ]
-            
-            # Date-only patterns (lower priority) - using case-insensitive flag
-            date_patterns = [
-                r'expires?\s+(?:on\s+)?([A-Za-z]+ \d{1,2},? \d{4})',
-                r'until\s+(\d{1,2}/\d{1,2}/\d{4})',
-                r'(?:valid|active)\s+(?:through|until)\s+([A-Za-z]+ \d{1,2},? \d{4})',
-                r'renewal\s+date:?\s*([A-Za-z]+ \d{1,2},? \d{4})',
-                r'next\s+billing:?\s*([A-Za-z]+ \d{1,2},? \d{4})'
-            ]
-            
-            # Get timezone from environment
-            tz_name = os.environ.get('TZ', 'America/New_York')
-            local_tz = pytz.timezone(tz_name)
-            
-            # Try datetime patterns first (with time)
-            for pattern in datetime_patterns:
-                matches = re.findall(pattern, page_source, re.IGNORECASE)
-                if matches:
-                    logger.info(f"📅 Pattern matched: {pattern[:30]}... Found: {matches[0]}")
-                    date_str = matches[0]
-                    try:
-                        # Clean up the string (remove 'st', 'nd', 'rd', 'th')
-                        cleaned_str = re.sub(r'(\d+)(st|nd|rd|th)', r'\1', date_str, flags=re.IGNORECASE)
-                        
-                        from dateutil import parser
-                        # Parse as local time and make timezone-aware
-                        expiration_date = parser.parse(cleaned_str)
-                        if expiration_date.tzinfo is None:
-                            expiration_date = local_tz.localize(expiration_date)
-                        
-                        # Convert to UTC for storage
-                        expiration_date_utc = expiration_date.astimezone(pytz.UTC)
-                        
-                        # Log what we found
-                        logger.info(f"📅 Found expiration with time: {cleaned_str} (interpreted as {tz_name})")
-                        logger.info(f"📅 Converted to UTC: {expiration_date_utc}")
-                        
-                        # If it's in the past, probably wrong - add a year
-                        if expiration_date_utc < datetime.now(pytz.UTC):
-                            expiration_date_utc = expiration_date_utc.replace(year=expiration_date_utc.year + 1)
-                        
-                        return expiration_date_utc
-                    except Exception as e:
-                        logger.debug(f"Failed to parse datetime: {date_str}, error: {e}")
-                        continue
-            
-            # Fall back to date-only patterns
-            logger.debug("No datetime patterns matched, trying date-only patterns...")
-            for pattern in date_patterns:
-                matches = re.findall(pattern, page_source, re.IGNORECASE)
-                if matches:
-                    logger.info(f"📅 Date pattern matched: {pattern[:30]}... Found: {matches[0]}")
-                    date_str = matches[0]
-                    try:
-                        from dateutil import parser
-                        # Parse as local time and make timezone-aware (will be midnight)
-                        expiration_date = parser.parse(date_str)
-                        if expiration_date.tzinfo is None:
-                            expiration_date = local_tz.localize(expiration_date)
-                        
-                        # Convert to UTC for storage
-                        expiration_date_utc = expiration_date.astimezone(pytz.UTC)
-                        
-                        logger.info(f"📅 Found expiration date (no time): {date_str} (interpreted as midnight {tz_name})")
-                        logger.info(f"📅 Converted to UTC: {expiration_date_utc}")
-                        
-                        # If it's in the past, probably wrong - add a year
-                        if expiration_date_utc < datetime.now(pytz.UTC):
-                            expiration_date_utc = expiration_date_utc.replace(year=expiration_date_utc.year + 1)
-                        
-                        return expiration_date_utc
-                    except Exception as e:
-                        logger.debug(f"Failed to parse date: {date_str}, error: {e}")
-                        continue
-            
-            logger.info("📅 No expiration date patterns matched on the page")            
-            return None
-            
-        except Exception as e:
-            logger.debug(f"Expiration extraction error: {str(e)}")
-            return None
     
     def _save_debug_screenshot(self, account, driver, step_name: str):
         """Save debug screenshot during renewal process (only in debug mode)"""

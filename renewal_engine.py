@@ -841,29 +841,29 @@ class RenewalEngine:
     def _extract_expiration_date(self, driver, newspaper_type: str) -> Optional[datetime]:
         """Extract expiration date from page content"""
         try:
-            page_source = driver.page_source.lower()
+            page_source = driver.page_source
             
             # Look for common expiration patterns
             import re
             import pytz
             
-            # Patterns with time (higher priority)
+            # Patterns with time (higher priority) - using case-insensitive flag
             datetime_patterns = [
                 # "August 7th, 2025 at 10:12 PM"
-                r'([a-z]+ \d{1,2}(?:st|nd|rd|th)?,? \d{4}\s+at\s+\d{1,2}:\d{2}\s*(?:am|pm)?)',
+                r'([A-Za-z]+ \d{1,2}(?:st|nd|rd|th)?,? \d{4}\s+at\s+\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)',
                 # "expires on March 15, 2024 at 11:59 PM"
-                r'expires?\s+(?:on\s+)?([a-z]+ \d{1,2},? \d{4}\s+at\s+\d{1,2}:\d{2}\s*(?:am|pm)?)',
+                r'expires?\s+(?:on\s+)?([A-Za-z]+ \d{1,2},? \d{4}\s+at\s+\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)',
                 # "valid until 03/15/2024 11:59 PM"
-                r'(?:valid|active)\s+(?:through|until)\s+(\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}\s*(?:am|pm)?)',
+                r'(?:valid|active)\s+(?:through|until)\s+(\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)',
             ]
             
-            # Date-only patterns (lower priority)
+            # Date-only patterns (lower priority) - using case-insensitive flag
             date_patterns = [
-                r'expires?\s+(?:on\s+)?([a-z]+ \d{1,2},? \d{4})',
+                r'expires?\s+(?:on\s+)?([A-Za-z]+ \d{1,2},? \d{4})',
                 r'until\s+(\d{1,2}/\d{1,2}/\d{4})',
-                r'(?:valid|active)\s+(?:through|until)\s+([a-z]+ \d{1,2},? \d{4})',
-                r'renewal\s+date:?\s*([a-z]+ \d{1,2},? \d{4})',
-                r'next\s+billing:?\s*([a-z]+ \d{1,2},? \d{4})'
+                r'(?:valid|active)\s+(?:through|until)\s+([A-Za-z]+ \d{1,2},? \d{4})',
+                r'renewal\s+date:?\s*([A-Za-z]+ \d{1,2},? \d{4})',
+                r'next\s+billing:?\s*([A-Za-z]+ \d{1,2},? \d{4})'
             ]
             
             # Get timezone from environment
@@ -872,12 +872,12 @@ class RenewalEngine:
             
             # Try datetime patterns first (with time)
             for pattern in datetime_patterns:
-                matches = re.findall(pattern, page_source)
+                matches = re.findall(pattern, page_source, re.IGNORECASE)
                 if matches:
                     date_str = matches[0]
                     try:
                         # Clean up the string (remove 'st', 'nd', 'rd', 'th')
-                        cleaned_str = re.sub(r'(\d+)(st|nd|rd|th)', r'\1', date_str)
+                        cleaned_str = re.sub(r'(\d+)(st|nd|rd|th)', r'\1', date_str, flags=re.IGNORECASE)
                         
                         from dateutil import parser
                         # Parse as local time and make timezone-aware
@@ -903,7 +903,7 @@ class RenewalEngine:
             
             # Fall back to date-only patterns
             for pattern in date_patterns:
-                matches = re.findall(pattern, page_source)
+                matches = re.findall(pattern, page_source, re.IGNORECASE)
                 if matches:
                     date_str = matches[0]
                     try:

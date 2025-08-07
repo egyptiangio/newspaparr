@@ -5,6 +5,13 @@ All notable changes to Newspaparr will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7] - 2025-08-07
+
+### Fixed
+- Expiration date extraction now uses case-insensitive regex matching
+- Fixed scheduling to properly use detected expiration dates
+- Resolved issue where renewals defaulted to 24h intervals instead of using actual expiration
+
 ## [0.5.6] - 2025-08-07
 
 ### Changed

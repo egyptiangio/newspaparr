@@ -225,10 +225,10 @@ class LibraryAdapter(ABC):
         
         # Let undetected-chromedriver handle driver and browser detection automatically
         try:
-            # Let undetected-chromedriver handle version matching automatically
-            self.driver = uc.Chrome(options=options)
-            logger.info("✅ Using undetected chrome with auto-managed ChromeDriver (version matched)")
-            logger.info(f"Successfully created undetected Chrome driver for {newspaper_type.upper()}")
+            # Use Chromium with undetected-chromedriver (supports ARM64)
+            self.driver = uc.Chrome(options=options, browser_executable_path="/usr/bin/chromium")
+            logger.info("✅ Using undetected Chromium with auto-managed ChromeDriver (version matched)")
+            logger.info(f"Successfully created undetected Chromium driver for {newspaper_type.upper()}")
             
             # Apply selenium-stealth for additional anti-detection
             logger.info("Applying selenium-stealth anti-detection measures...")
@@ -288,8 +288,8 @@ class LibraryAdapter(ABC):
         chrome_options.add_argument("--disable-web-security")
         chrome_options.add_argument("--allow-running-insecure-content")
         
-        # Use Google Chrome
-        chrome_options.binary_location = "/usr/bin/google-chrome-stable"
+        # Use Chromium
+        chrome_options.binary_location = "/usr/bin/chromium"
         
         from selenium.webdriver.chrome.service import Service
         

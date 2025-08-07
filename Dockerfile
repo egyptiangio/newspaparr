@@ -44,15 +44,13 @@ RUN apt-get update && apt-get install -y \
     libxss1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Download and install Chrome 139
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable=139.* || apt-get install -y google-chrome-stable \
+# Install Chromium (supports both AMD64 and ARM64)
+RUN apt-get update \
+    && apt-get install -y chromium chromium-driver \
     && rm -rf /var/lib/apt/lists/* \
-    # Create symlinks for consistent paths
-    && ln -s /usr/bin/google-chrome-stable /usr/bin/chromium || true \
-    && ln -s /usr/bin/google-chrome-stable /usr/bin/chromium-browser || true
+    # Create symlinks for compatibility
+    && ln -s /usr/bin/chromium /usr/bin/google-chrome || true \
+    && ln -s /usr/bin/chromium /usr/bin/google-chrome-stable || true
 
 # Set work directory
 WORKDIR /app

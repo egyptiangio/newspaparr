@@ -73,7 +73,7 @@ class RenewalEngine:
 ============================================================
 STARTING RENEWAL for {account.name} ({account.newspaper_type.upper()})
 ============================================================
-Library: {account.library_type}
+Library: {getattr(account.library, 'name', account.library_type)}
 Newspaper: {account.newspaper_type.upper()}
 Headless: {self.headless}
 Timeout: {self.timeout}s
@@ -115,7 +115,7 @@ Timeout: {self.timeout}s
                 
                 # Skip prescriptive portal access - let priority-based system handle it
                 # This allows adaptation to different library implementations
-                logger.info(f"🏃 Skipping prescriptive portal access for {newspaper_type.upper()} - letting priority system handle it")
+                # Using priority system for login
             
             # Step 4: Handle newspaper login (priority-based system)
             newspaper_type = getattr(account, 'newspaper_type', 'nyt')
@@ -125,41 +125,14 @@ Timeout: {self.timeout}s
             # Step 5: Verify renewal success and extract expiration
             success, result_url, expiration_datetime, final_state, state_message = self._verify_renewal(adapter, account)
             
-            # Create the formatted result block
-            result_lines = [
-                "",
-                "="*60,
-                f"RENEWAL RESULT for {account.name} ({account.newspaper_type.upper()})",
-                "="*60,
-                f"State: {final_state}"
-            ]
-            if state_message:
-                result_lines.append(f"Details: {state_message}")
-            if expiration_datetime:
-                result_lines.append(f"Expires: {expiration_datetime}")
-            result_lines.append("="*60)
-            result_lines.append("")
-            
-            result_block = '\n'.join(result_lines)
-            
-            # Print to terminal and log
-            print(result_block)
-            for line in result_lines:
-                if line:  # Skip empty lines in logs
-                    logger.info(line)
-            
             # Build appropriate message based on state
             if final_state == "SUCCESS":
-                logger.info(f"✅ Renewal successful for {account.name}")
                 message = state_message or f"✅ Renewal complete - Access verified"
             elif final_state == "SUCCESS_WITH_WARNING":
-                logger.warning(f"⚠️ {state_message} for {account.name}")
                 message = f"⚠️ {state_message}"
             elif final_state == "FAILURE":
-                logger.error(f"❌ {state_message} for {account.name}")
                 message = f"❌ {state_message}"
             else:
-                logger.warning(f"❓ Renewal status uncertain for {account.name}")
                 message = f"⚠️ Renewal may need attention - Process completed but status unclear"
             
         except Exception as e:
@@ -181,6 +154,26 @@ Timeout: {self.timeout}s
             is_warning = (final_state == "SUCCESS_WITH_WARNING")
             self._log_renewal_attempt(account, success, message, duration, 
                                     is_warning=is_warning)
+            
+            # Print final summary AFTER all actions are complete
+            result_lines = [
+                "",
+                "="*60,
+                f"RENEWAL RESULT for {account.name} ({account.newspaper_type.upper()})",
+                "="*60,
+                f"State: {final_state}"
+            ]
+            if state_message:
+                result_lines.append(f"Details: {state_message}")
+            if expiration_datetime:
+                result_lines.append(f"Expires: {expiration_datetime}")
+            result_lines.append("="*60)
+            result_lines.append("")
+            
+            # Log the final summary
+            for line in result_lines:
+                if line:  # Skip empty lines in logs
+                    logger.info(line)
         
         return success, result_url, expiration_datetime
     

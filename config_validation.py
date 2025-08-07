@@ -279,7 +279,7 @@ class ConfigValidator:
         """Check system dependencies"""
         # Check Chrome/Chromium
         chrome_paths = [
-            '/usr/bin/google-chrome',
+            '/usr/bin/chromium',
             '/usr/bin/chromium-browser',
             '/usr/bin/chromium',
             '/opt/google/chrome/chrome'
@@ -307,7 +307,7 @@ class ConfigValidator:
         else:
             # Check if proxy configuration is complete
             proxy_host = config.get('PROXY_HOST', '')
-            proxy_port = config.get('SOCKS5_PROXY_PORT', 0)
+            proxy_port = int(config.get('SOCKS5_PROXY_PORT', 0))
             
             if not proxy_host or proxy_host == 'localhost':
                 warnings.append("⚠️ PROXY_HOST is localhost - CapSolver may not be able to connect")

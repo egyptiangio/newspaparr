@@ -5,6 +5,16 @@ All notable changes to Newspaparr will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2025-08-07
+
+### Changed
+- Switched from Google Chrome to Chromium for ARM64 support
+- Improved logging format and reduced verbosity
+- Fixed proxy port configuration bug
+
+### Added
+- Multi-architecture Docker support (AMD64 + ARM64)
+
 ## [0.5.0] - 2025-08-07
 
 ### 🎉 Initial Public Release

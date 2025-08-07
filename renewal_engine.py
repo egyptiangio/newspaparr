@@ -394,6 +394,10 @@ class RenewalEngine:
                     current_url = driver.current_url.lower()
                     if any(indicator in current_url for indicator in ['login', 'signin', 'auth', 'sso']):
                         logger.info(f"🔄 Still on login page ({current_url[:50]}...), continuing priority-based login")
+                    elif any(indicator in current_url for indicator in ['register', 'registration', 'create', 'join']):
+                        # Registration page - continue to handle terms acceptance
+                        logger.info(f"📝 Reached registration page ({current_url[:50]}...), continuing to handle terms")
+                        # Don't break - let Priority 4 (terms acceptance) handle it
                     else:
                         # Unknown page - let verification logic handle it
                         logger.info(f"🤔 Reached unknown page ({current_url[:50]}...), letting verification handle it")
@@ -633,6 +637,8 @@ class RenewalEngine:
                 logger.debug("No checkboxes found on terms page")
                 return False
             
+            logger.info(f"Found {len(checkboxes)} checkboxes on registration page")
+            
             # Keywords to AVOID (marketing, newsletters, etc.)
             avoid_keywords = [
                 'special offers', 'marketing', 'updates', 'newsletter', 
@@ -685,6 +691,26 @@ class RenewalEngine:
                             checkbox_text = checkbox_text.lower()
                         except:
                             pass
+                    
+                    # Method 5: Look for text in broader parent context (WSJ specific)
+                    if not checkbox_text:
+                        try:
+                            # Go up multiple levels to find text container
+                            parent = checkbox.find_element(By.XPATH, "./ancestor::div[contains(@class, 'checkbox') or contains(@class, 'form')]")
+                            checkbox_text = parent.text.lower()
+                        except:
+                            pass
+                    
+                    # Method 6: Get index and use it to determine checkbox purpose
+                    # This is a fallback if text detection fails completely
+                    checkbox_index = checkboxes.index(checkbox)
+                    if not checkbox_text and len(checkboxes) == 2:
+                        # Common pattern: first checkbox is marketing, second is terms
+                        if checkbox_index == 0:
+                            checkbox_text = "marketing offers newsletter"  # Force skip
+                        else:
+                            checkbox_text = "terms of use agreement"  # Force accept
+                        logger.info(f"Using checkbox position fallback: index {checkbox_index}")
                     
                     logger.debug(f"Checkbox text: {checkbox_text[:100]}...")
                     

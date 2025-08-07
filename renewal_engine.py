@@ -68,12 +68,17 @@ class RenewalEngine:
         self._cleanup_old_attempts(account_name)
         
         try:
+            # Get library name for display
+            from app import LibraryConfig
+            library_config = LibraryConfig.query.filter_by(type=account.library_type).first()
+            library_name = library_config.name if library_config else account.library_type
+            
             # Create the formatted block
             start_block = f"""
 ============================================================
 STARTING RENEWAL for {account.name} ({account.newspaper_type.upper()})
 ============================================================
-Library: {getattr(account.library, 'name', account.library_type)}
+Library: {library_name}
 Newspaper: {account.newspaper_type.upper()}
 Headless: {self.headless}
 Timeout: {self.timeout}s

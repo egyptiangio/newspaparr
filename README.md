@@ -9,7 +9,7 @@ Automated library card renewal system for digital newspaper access. Keep your Ne
 ## ✨ Features
 
 - 🔄 **Automated Daily Renewals** - Set it and forget it
-- 📚 **Multi-Library Support** - Works with OCLC-affiliated libraries
+- 📚 **Multi-Library Support** - Use your library-provided URLs
 - 📰 **NYT & WSJ Support** - Access major newspapers through your library
 - 🤖 **CAPTCHA Solving** - Handles DataDome challenges automatically
 - 🌐 **Web Dashboard** - Modern, responsive interface
@@ -22,22 +22,24 @@ Automated library card renewal system for digital newspaper access. Keep your Ne
 ### Prerequisites
 
 - Docker and Docker Compose installed
-- Active library card from an OCLC-affiliated library
+- Active library card with digital newspaper access
 - Free accounts at NYT and/or WSJ (without paid subscriptions)
 - (Optional) CapSolver account for CAPTCHA solving
 
 ### Installation
 
-1. **Clone the repository**
+1. **Create a docker-compose.yml file**
    ```bash
-   git clone https://github.com/yourusername/newspaparr.git
-   cd newspaparr
+   # Download the example configuration
+   wget https://raw.githubusercontent.com/egyptiangio/newspaparr/main/docker-compose.example.yml -O docker-compose.yml
+   
+   # Or create it manually from the example below
    ```
 
-2. **Configure environment**
+2. **Configure your settings**
    ```bash
-   cp docker-compose.example.yml docker-compose.yml
-   # Edit docker-compose.yml with your settings
+   # Edit docker-compose.yml with your library and newspaper settings
+   nano docker-compose.yml
    ```
 
 3. **Start the container**
@@ -54,7 +56,7 @@ Automated library card renewal system for digital newspaper access. Keep your Ne
 ## 📋 Requirements
 
 ### Library Requirements
-- Must be an OCLC-affiliated library
+- Must provide digital newspaper passes
 - Library must offer digital newspaper passes
 - Valid library card number and PIN
 
@@ -71,18 +73,37 @@ Automated library card renewal system for digital newspaper access. Keep your Ne
 
 ## 🔧 Configuration
 
-### Basic Settings
-
-Edit your `docker-compose.yml`:
+### Minimal docker-compose.yml
 
 ```yaml
-environment:
-  # Timezone for scheduling
-  - TZ=America/New_York
-  
-  # File permissions (use: id $(whoami))
-  - PUID=1000
-  - PGID=1000
+services:
+  newspaparr:
+    image: ghcr.io/egyptiangio/newspaparr:latest
+    container_name: newspaparr
+    ports:
+      - "1851:1851"           # Web interface
+      - "3333:3333"           # SOCKS5 proxy for CAPTCHA solving
+    volumes:
+      - ./data:/app/data      # Persistent data storage
+    restart: unless-stopped
+    environment:
+      # Basic Configuration
+      - TZ=America/New_York
+      - PUID=1000
+      - PGID=1000
+      
+      # Anti-Detection Settings
+      - RENEWAL_HEADLESS=false     # Use GUI mode for better success
+      - RENEWAL_SPEED=normal        # Interaction speed: fast, normal, slow
+      - RENEWAL_RANDOM_UA=false     # Keep false for CAPTCHA compatibility
+      
+      # CAPTCHA Solving (Required for most libraries)
+      - CAPSOLVER_API_KEY=YOUR_API_KEY_HERE
+      - PROXY_HOST=your-hostname.com    # Your external IP/hostname
+      - SOCKS5_PROXY_PORT=3333
+      
+      # Optional: Debug Mode
+      - RENEWAL_DEBUG=false         # Set to true for verbose logging
 ```
 
 ### CAPTCHA Setup
@@ -119,8 +140,8 @@ See `docker-compose.example.yml` for all available options including:
 
 ### Supported Libraries
 
-- Most OCLC/WorldCat libraries
-- Libraries using standard OCLC authentication
+- Libraries with newspaper pass programs
+- Any library-provided newspaper access URL
 - Custom adapters can be added for special cases
 
 ### Renewal States
@@ -242,4 +263,4 @@ This tool automates the library card renewal process. Users are responsible for:
 
 ---
 
-**Note**: This project is not affiliated with The New York Times, Wall Street Journal, OCLC, or any library system. It's an independent tool to help users maintain their legitimate library-provided newspaper access.
+**Note**: This project is not affiliated with The New York Times, Wall Street Journal, or any library system. It's an independent tool to help users maintain their legitimate library-provided newspaper access.

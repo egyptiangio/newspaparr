@@ -1,0 +1,119 @@
+name: Build and Release Newspaparr
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Lint with flake8
+      run: |
+        pip install flake8
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+    
+    - name: Test imports
+      run: |
+        python -c "import app, library_adapters, renewal_engine"
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main')
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=raw,value=latest,enable={{is_default_branch}}
+    
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  release:
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Newspaparr ${{ github.ref }}
+        body: |
+          ## What's New in ${{ github.ref }}
+          
+          🗞️ **Automated newspaper renewal system**
+          
+          ### Features
+          - ✅ New York Times auto-renewal via library passes
+          - ✅ OCLC library support
+          - ✅ Intuitive web interface
+          - ✅ Docker deployment
+          - ✅ Multi-account management
+          
+          ### Quick Start
+          ```bash
+          # Create docker-compose.yml and run
+          docker-compose up -d
+          ```
+          
+          ### Docker
+          ```bash
+          docker run -d -p 1851:1851 -v ./data:/app/data ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          ```
+          
+          See the [README](https://github.com/egyptiangio/newspaparr) for full documentation.
+        draft: false
+        prerelease: false

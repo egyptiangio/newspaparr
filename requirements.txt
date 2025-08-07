@@ -1,0 +1,27 @@
+# Core web automation
+selenium>=4.15.0
+undetected-chromedriver>=3.5.0
+selenium-stealth>=1.0.6
+pyvirtualdisplay>=3.0
+
+# CAPTCHA solving
+capsolver>=1.0.0
+
+# Web UI Framework
+flask>=3.0.0
+flask-wtf>=1.2.0
+flask-sqlalchemy>=3.1.0
+flask-migrate>=4.0.0
+wtforms>=3.1.0
+
+# Scheduling and Background Tasks
+apscheduler>=3.10.0
+
+# Configuration and Environment  
+pytz>=2023.3
+
+# Database
+sqlalchemy>=2.0.0
+
+# Docker and Deployment
+gunicorn>=21.0.0

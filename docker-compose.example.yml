@@ -1,0 +1,123 @@
+services:
+  newspaparr:
+    image: ghcr.io/egyptiangio/newspaparr:latest
+    # To build locally instead, comment out 'image' and uncomment 'build':
+    # build: .
+    container_name: newspaparr
+    ports:
+      - "1851:1851"           # Web interface
+      - "3333:3333"           # SOCKS5 proxy for CapSolver (optional, only if using CAPTCHA solving)
+    volumes:
+      - ./data:/app/data      # Persistent data storage
+    restart: unless-stopped
+    environment:
+      # ====================
+      # BASIC CONFIGURATION
+      # ====================
+      
+      # Timezone for scheduling (default: America/New_York)
+      # See: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+      - TZ=America/New_York
+      
+      # User/Group IDs for file permissions (find with: id $(whoami))
+      - PUID=1000
+      - PGID=1000
+      
+      # ====================
+      # ANTI-DETECTION SETTINGS
+      # ====================
+      
+      # Browser mode: false = GUI mode (better anti-detection), true = headless
+      - RENEWAL_HEADLESS=false
+      
+      # Speed of interactions: fast, normal, or slow
+      - RENEWAL_SPEED=normal
+      
+      # Random User-Agent: false = use static UA for CapSolver compatibility
+      - RENEWAL_RANDOM_UA=false
+      
+      # ====================
+      # CAPTCHA SOLVING (OPTIONAL)
+      # ====================
+      
+      # CapSolver API key (get from capsolver.com)
+      # Comment out if not using CAPTCHA solving
+      - CAPSOLVER_API_KEY=YOUR_CAPSOLVER_API_KEY_HERE
+      
+      # Your external hostname/IP for CAPTCHA services to connect
+      # This should be your public IP or dynamic DNS hostname
+      # Comment out if not using CAPTCHA solving
+      - PROXY_HOST=your-external-hostname.com
+      
+      # SOCKS5 proxy port (must match port mapping above)
+      # Comment out if not using CAPTCHA solving
+      - SOCKS5_PROXY_PORT=3333
+      
+      # User-Agent for CapSolver (must match browser UA)
+      # Only change if you know what you're doing
+      - CAPSOLVER_USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36
+      
+      # ====================
+      # LOGGING & DEBUGGING
+      # ====================
+      
+      # Log level: DEBUG, INFO, WARNING, ERROR
+      # - LOG_LEVEL=INFO
+      
+      # Enable screenshot capture for debugging (creates many files)
+      # - DEBUG_SCREENSHOTS=false
+      
+      # ====================
+      # ADVANCED SETTINGS
+      # ====================
+      
+      # Renewal timeout in seconds (default: 300)
+      # - RENEWAL_TIMEOUT=300
+      
+      # Maximum renewal attempts before giving up (default: 3)
+      # - MAX_RENEWAL_ATTEMPTS=3
+      
+      # Delay between renewal attempts in seconds (default: 60)
+      # - RENEWAL_RETRY_DELAY=60
+      
+      # ====================
+      # NETWORK SETTINGS
+      # ====================
+      
+      # If running behind a proxy, uncomment and configure:
+      # - HTTP_PROXY=http://proxy.example.com:8080
+      # - HTTPS_PROXY=http://proxy.example.com:8080
+      # - NO_PROXY=localhost,127.0.0.1
+
+# ====================
+# NOTES
+# ====================
+# 
+# 1. CAPTCHA Solving Setup:
+#    - Sign up at capsolver.com
+#    - Add credit to your account (~$3 per 1000 CAPTCHAs)
+#    - Get your API key from the dashboard
+#    - Ensure port 3333 is open/forwarded on your router
+#    - Set PROXY_HOST to your external IP or dynamic DNS
+#
+# 2. Library Requirements:
+#    - Your library must be OCLC-affiliated
+#    - Library must offer digital newspaper passes
+#    - You need a valid library card number and PIN
+#
+# 3. Newspaper Accounts:
+#    - Create free accounts at NYT and/or WSJ
+#    - Do NOT have active paid subscriptions
+#    - Accounts will be linked to library passes
+#
+# 4. First Run:
+#    - Access web interface at http://localhost:1851
+#    - Add library configuration
+#    - Add newspaper accounts
+#    - Test manual renewal before enabling automation
+#
+# 5. Troubleshooting:
+#    - Check logs: docker-compose logs -f
+#    - Enable DEBUG_SCREENSHOTS for visual debugging
+#    - Ensure all credentials are correct
+#    - Verify network connectivity

@@ -66,10 +66,10 @@ Automated library card renewal system for digital newspaper access. Keep your Ne
 - Will be linked to library passes automatically
 
 ### CAPTCHA Solving (Optional but Recommended)
-- Account at [CapSolver](https://capsolver.com)
+- Account at [CapSolver](https://capsolver.com) for when NYT/WSJ show CAPTCHAs
 - Small credit balance (~$3 per 1000 CAPTCHAs)
-- Port 3333 open/forwarded for SOCKS5 proxy
-- External IP or dynamic DNS configured
+- **Port 3333 must be forwarded** on your router for external access
+- External IP or dynamic DNS configured (e.g., your-home.duckdns.org)
 
 ## 🔧 Configuration
 
@@ -97,7 +97,7 @@ services:
       - RENEWAL_SPEED=normal        # Interaction speed: fast, normal, slow
       - RENEWAL_RANDOM_UA=false     # Keep false for CAPTCHA compatibility
       
-      # CAPTCHA Solving (Required for most libraries)
+      # CAPTCHA Solving (For NYT/WSJ bot detection)
       - CAPSOLVER_API_KEY=YOUR_API_KEY_HERE
       - PROXY_HOST=your-hostname.com    # Your external IP/hostname
       - SOCKS5_PROXY_PORT=3333
@@ -108,27 +108,32 @@ services:
 
 ### CAPTCHA Setup
 
-If your library uses DataDome protection:
+When NYT or WSJ detect bot activity and show CAPTCHAs, Newspaparr automatically handles them:
 
+1. **Port Forwarding Required**: Forward port 3333 on your router to your Docker host
+   - External port: 3333 → Internal port: 3333
+   - This allows the CAPTCHA service to connect through your home IP
+
+2. **On-Demand SOCKS5 Proxy**:
+   - Proxy starts automatically only when CAPTCHA solving is needed
+   - Shuts down immediately after solving (not always running)
+   - Uses randomized credentials for each renewal session
+   - Credentials expire and rotate automatically for security
+
+3. **Configuration**:
 ```yaml
 environment:
-  # CapSolver API key
+  # CapSolver API key from capsolver.com
   - CAPSOLVER_API_KEY=YOUR_API_KEY_HERE
   
-  # Your external hostname/IP
+  # Your external hostname/IP (must be accessible from internet)
   - PROXY_HOST=your-hostname.com
   
-  # SOCKS5 proxy port
+  # SOCKS5 proxy port (must match port forwarding)
   - SOCKS5_PROXY_PORT=3333
 ```
 
-### Advanced Options
-
-See `docker-compose.example.yml` for all available options including:
-- Anti-detection settings
-- Logging levels
-- Retry configuration
-- Proxy settings
+**Security Note**: The proxy only runs during CAPTCHA solving (typically 30-60 seconds) with temporary credentials that are invalidated immediately after use.
 
 ## 📖 How It Works
 

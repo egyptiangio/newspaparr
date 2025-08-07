@@ -62,9 +62,17 @@ class RenewalEngine:
         
         # Log the renewal start as the VERY FIRST thing
         logger.info("")
+        # Import version
+        try:
+            from app import __version__
+            version = __version__
+        except:
+            version = "Unknown"
+            
         logger.info("=" * 60)
         logger.info(f"STARTING RENEWAL for {account.name} ({account.newspaper_type.upper()})")
         logger.info("=" * 60)
+        logger.info(f"Version: {version}")
         logger.info(f"Library: {library_name}")
         logger.info(f"Newspaper: {account.newspaper_type.upper()}")
         logger.info(f"Timeout: {self.timeout}s")
@@ -644,15 +652,35 @@ class RenewalEngine:
             if newspaper_type == 'wsj' and len(checkboxes) == 2:
                 logger.info("📋 WSJ registration with 2 checkboxes - first is marketing (skip), second is terms (check)")
                 
-                # Check only the second checkbox (terms)
-                second_checkbox = checkboxes[1]
-                if not second_checkbox.is_selected():
-                    second_checkbox.click()
-                    logger.info("✅ Checked second checkbox (terms agreement)")
-                    terms_checked = True
-                else:
-                    logger.debug("Terms checkbox already selected")
-                    terms_checked = True
+                try:
+                    first_checkbox = checkboxes[0]
+                    second_checkbox = checkboxes[1]
+                    
+                    # Log current state of checkboxes
+                    logger.info(f"First checkbox (marketing) is selected: {first_checkbox.is_selected()}")
+                    logger.info(f"Second checkbox (terms) is selected: {second_checkbox.is_selected()}")
+                    
+                    # Uncheck first checkbox if it's checked (it's pre-checked by WSJ)
+                    if first_checkbox.is_selected():
+                        first_checkbox.click()
+                        self._human_delay('small')
+                        logger.info("❌ Unchecked first checkbox (marketing - pre-checked by WSJ)")
+                    
+                    # Check second checkbox if it's not checked
+                    if not second_checkbox.is_selected():
+                        second_checkbox.click()
+                        self._human_delay('small')
+                        logger.info("✅ Checked second checkbox (terms agreement)")
+                        terms_checked = True
+                    else:
+                        logger.info("Terms checkbox already selected")
+                        terms_checked = True
+                        
+                except Exception as e:
+                    logger.error(f"❌ Error handling WSJ checkboxes: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    # Don't return False - still try to click CREATE
             else:
                 # Standard text-based detection for other cases
                 # Keywords to AVOID (marketing, newsletters, etc.)
@@ -753,16 +781,18 @@ class RenewalEngine:
             
             # Look for submit/create button
             submit_selectors = [
+                "button.btn--primary",  # WSJ specific class
+                "button[type='submit']",
                 "button:contains('CREATE')",
                 "button:contains('Create')",
                 "button:contains('Continue')",
                 "button:contains('Submit')",
                 "button:contains('Accept')",
-                "button[type='submit']",
                 "#create-account-button",
                 ".submit-button"
             ]
             
+            button_clicked = False
             for selector in submit_selectors:
                 try:
                     if "contains" in selector:
@@ -772,12 +802,19 @@ class RenewalEngine:
                         button = driver.find_element(By.CSS_SELECTOR, selector)
                     
                     if button and button.is_enabled() and button.is_displayed():
-                        logger.info(f"🔘 Found CREATE/submit button: {selector}")
-                        button.click()
-                        logger.info(f"✅ Clicked CREATE button to complete registration")
-                        self._human_delay('medium')
-                        return True
-                except:
+                        logger.info(f"🔘 Found CREATE/submit button with selector: {selector}")
+                        logger.info(f"   Button text: {button.text}")
+                        try:
+                            button.click()
+                            logger.info(f"✅ Successfully clicked CREATE button")
+                            self._human_delay('medium')
+                            button_clicked = True
+                            return True
+                        except Exception as click_error:
+                            logger.error(f"❌ Failed to click button: {click_error}")
+                            continue
+                except Exception as e:
+                    logger.debug(f"Button not found with {selector}: {e}")
                     continue
             
             logger.warning("⚠️ No CREATE/submit button found on registration page")

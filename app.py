@@ -33,7 +33,7 @@ from library_adapters import LibraryAdapterFactory
 from renewal_engine import RenewalEngine
 
 # Application version
-__version__ = '0.5.3'
+__version__ = '0.5.4'
 
 # Validate configuration at startup
 if __name__ == '__main__':
@@ -266,7 +266,7 @@ class LibraryForm(FlaskForm):
     nyt_url = StringField('NYT Access URL', validators=[DataRequired()], description='Direct URL for NYT access through your library')
     wsj_url = StringField('WSJ Access URL', validators=[DataRequired()], description='Direct URL for WSJ access through your library')
     homepage = StringField('Library Homepage (optional)', description='Main library website URL for linking')
-    default_renewal_hours = IntegerField('Default Renewal Hours', validators=[NumberRange(min=1, max=168)], default=24)
+    default_renewal_hours = IntegerField('Default Renewal Hours', validators=[NumberRange(min=1, max=168)], default=24, description='Renewals will run at this interval + 1 minute')
     active = BooleanField('Active', default=True)
     custom_config = TextAreaField('Additional Configuration (JSON)', description='Optional: JSON configuration for advanced settings')
 
@@ -425,11 +425,6 @@ def manual_renewal(id):
         # Check if we should disable headless mode (for debugging)
         headless = request.form.get('headless', 'true').lower() == 'true'
         
-        logger.info("Starting manual renewal", 
-                   account=account.name, 
-                   headless=headless,
-                   newspaper=getattr(account, 'newspaper_type', 'nyt'))
-        
         renewal_engine = RenewalEngine(headless=headless)
         success, result_url, expiration_datetime = renewal_engine.renew_account(account)
         
@@ -437,10 +432,15 @@ def manual_renewal(id):
             # Update scheduling based on expiration date if available
             if expiration_datetime:
                 account.next_renewal = expiration_datetime + timedelta(minutes=1)
-                logger.info(f"📅 Updated next renewal for {account.name} ({account.newspaper_type.upper()}) based on expiration: {account.next_renewal}")
+                # Convert to local time for logging
+                local_next = localtime_filter(account.next_renewal)
+                logger.info(f"📅 Updated next renewal for {account.name} ({account.newspaper_type.upper()}) based on expiration: {local_next.strftime('%Y-%m-%d %H:%M:%S %Z')}")
             else:
-                account.next_renewal = datetime.utcnow() + timedelta(hours=account.renewal_hours)
-                logger.info(f"⏰ Updated next renewal for {account.name} ({account.newspaper_type.upper()}) using 24h interval: {account.next_renewal}")
+                # Fallback: 24 hours + 1 minute from now (successful renewal time)
+                account.next_renewal = datetime.utcnow() + timedelta(hours=24, minutes=1)
+                # Convert to local time for logging
+                local_next = localtime_filter(account.next_renewal)
+                logger.info(f"⏰ Updated next renewal for {account.name} ({account.newspaper_type.upper()}) using 24h+1m interval: {local_next.strftime('%Y-%m-%d %H:%M:%S %Z')}")
             
             # Update last renewal time and reschedule
             account.last_renewal = datetime.utcnow()
@@ -868,7 +868,7 @@ def schedule_account_renewal(account):
         # Fallback to interval-based scheduling
         scheduler.add_job(
             func=run_account_renewal,
-            trigger=IntervalTrigger(hours=account.renewal_hours),
+            trigger=IntervalTrigger(hours=account.renewal_hours, minutes=1),
             id=job_id,
             args=[account.id],
             replace_existing=True
@@ -896,9 +896,9 @@ def run_account_renewal(account_id):
             account.next_renewal = expiration_datetime + timedelta(minutes=1)
             logger.info(f"📅 Scheduled next renewal for {account.name} ({account.newspaper_type.upper()}) based on expiration: {account.next_renewal}")
         else:
-            # Fallback to 24-hour intervals when no expiration date available
-            account.next_renewal = datetime.utcnow() + timedelta(hours=account.renewal_hours)
-            logger.info(f"⏰ Scheduled next renewal for {account.name} ({account.newspaper_type.upper()}) using 24h interval: {account.next_renewal}")
+            # Fallback to intervals + 1 minute when no expiration date available
+            account.next_renewal = datetime.utcnow() + timedelta(hours=account.renewal_hours, minutes=1)
+            logger.info(f"⏰ Scheduled next renewal for {account.name} ({account.newspaper_type.upper()}) using {account.renewal_hours}h 1m interval: {account.next_renewal}")
         
         db.session.commit()
         

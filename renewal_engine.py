@@ -43,13 +43,29 @@ class RenewalEngine:
         # Current attempt directory (will be set per renewal)
         self.current_attempt_dir = None
         
-        # Validate CapSolver user agent consistency
-        logger.info(f"🎭 Using CapSolver-compatible User-Agent: {CAPSOLVER_USER_AGENT[:60]}...")
-        
-        logger.info(f"🚀 Clean RenewalEngine initialized (headless={headless}, timeout={timeout}s)")
+        # Log initialization at debug level only
+        logger.debug(f"🎭 Using CapSolver-compatible User-Agent: {CAPSOLVER_USER_AGENT[:60]}...")
+        logger.debug(f"🚀 Clean RenewalEngine initialized (headless={headless}, timeout={timeout}s)")
     
     def renew_account(self, account) -> Tuple[bool, Optional[str], Optional[datetime]]:
         """Main entry point for account renewal"""
+        # Get library name for display FIRST (before any logging)
+        from app import LibraryConfig
+        library_config = LibraryConfig.query.filter_by(type=account.library_type).first()
+        library_name = library_config.name if library_config else account.library_type
+        
+        # Log the renewal start as the VERY FIRST thing
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info(f"STARTING RENEWAL for {account.name} ({account.newspaper_type.upper()})")
+        logger.info("=" * 60)
+        logger.info(f"Library: {library_name}")
+        logger.info(f"Newspaper: {account.newspaper_type.upper()}")
+        logger.info(f"Headless: {self.headless}")
+        logger.info(f"Timeout: {self.timeout}s")
+        logger.info("=" * 60)
+        logger.info("")
+        
         start_time = time.time()
         adapter = None
         success = False
@@ -68,29 +84,6 @@ class RenewalEngine:
         self._cleanup_old_attempts(account_name)
         
         try:
-            # Get library name for display
-            from app import LibraryConfig
-            library_config = LibraryConfig.query.filter_by(type=account.library_type).first()
-            library_name = library_config.name if library_config else account.library_type
-            
-            # Create the formatted block
-            start_block = f"""
-============================================================
-STARTING RENEWAL for {account.name} ({account.newspaper_type.upper()})
-============================================================
-Library: {library_name}
-Newspaper: {account.newspaper_type.upper()}
-Headless: {self.headless}
-Timeout: {self.timeout}s
-============================================================
-"""
-            # Print to terminal and log
-            print(start_block)
-            for line in start_block.strip().split('\n'):
-                logger.info(line)
-            
-            logger.info(f"🔄 Starting renewal for account: {account.name} ({account.newspaper_type.upper()})")
-            
             # Reset state detection counters for new renewal
             StateDetector.reset_all_counters()
             
@@ -854,7 +847,17 @@ Timeout: {self.timeout}s
             import re
             import pytz
             
-            # Patterns like "expires on March 15, 2024" or "until 03/15/2024"
+            # Patterns with time (higher priority)
+            datetime_patterns = [
+                # "August 7th, 2025 at 10:12 PM"
+                r'([a-z]+ \d{1,2}(?:st|nd|rd|th)?,? \d{4}\s+at\s+\d{1,2}:\d{2}\s*(?:am|pm)?)',
+                # "expires on March 15, 2024 at 11:59 PM"
+                r'expires?\s+(?:on\s+)?([a-z]+ \d{1,2},? \d{4}\s+at\s+\d{1,2}:\d{2}\s*(?:am|pm)?)',
+                # "valid until 03/15/2024 11:59 PM"
+                r'(?:valid|active)\s+(?:through|until)\s+(\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}\s*(?:am|pm)?)',
+            ]
+            
+            # Date-only patterns (lower priority)
             date_patterns = [
                 r'expires?\s+(?:on\s+)?([a-z]+ \d{1,2},? \d{4})',
                 r'until\s+(\d{1,2}/\d{1,2}/\d{4})',
@@ -867,20 +870,54 @@ Timeout: {self.timeout}s
             tz_name = os.environ.get('TZ', 'America/New_York')
             local_tz = pytz.timezone(tz_name)
             
+            # Try datetime patterns first (with time)
+            for pattern in datetime_patterns:
+                matches = re.findall(pattern, page_source)
+                if matches:
+                    date_str = matches[0]
+                    try:
+                        # Clean up the string (remove 'st', 'nd', 'rd', 'th')
+                        cleaned_str = re.sub(r'(\d+)(st|nd|rd|th)', r'\1', date_str)
+                        
+                        from dateutil import parser
+                        # Parse as local time and make timezone-aware
+                        expiration_date = parser.parse(cleaned_str)
+                        if expiration_date.tzinfo is None:
+                            expiration_date = local_tz.localize(expiration_date)
+                        
+                        # Convert to UTC for storage
+                        expiration_date_utc = expiration_date.astimezone(pytz.UTC)
+                        
+                        # Log what we found
+                        logger.info(f"📅 Found expiration with time: {cleaned_str} (interpreted as {tz_name})")
+                        logger.info(f"📅 Converted to UTC: {expiration_date_utc}")
+                        
+                        # If it's in the past, probably wrong - add a year
+                        if expiration_date_utc < datetime.now(pytz.UTC):
+                            expiration_date_utc = expiration_date_utc.replace(year=expiration_date_utc.year + 1)
+                        
+                        return expiration_date_utc
+                    except Exception as e:
+                        logger.debug(f"Failed to parse datetime: {date_str}, error: {e}")
+                        continue
+            
+            # Fall back to date-only patterns
             for pattern in date_patterns:
                 matches = re.findall(pattern, page_source)
                 if matches:
                     date_str = matches[0]
                     try:
-                        # Try to parse the date
                         from dateutil import parser
-                        # Parse as local time and make timezone-aware
+                        # Parse as local time and make timezone-aware (will be midnight)
                         expiration_date = parser.parse(date_str)
                         if expiration_date.tzinfo is None:
                             expiration_date = local_tz.localize(expiration_date)
                         
                         # Convert to UTC for storage
                         expiration_date_utc = expiration_date.astimezone(pytz.UTC)
+                        
+                        logger.info(f"📅 Found expiration date (no time): {date_str} (interpreted as midnight {tz_name})")
+                        logger.info(f"📅 Converted to UTC: {expiration_date_utc}")
                         
                         # If it's in the past, probably wrong - add a year
                         if expiration_date_utc < datetime.now(pytz.UTC):

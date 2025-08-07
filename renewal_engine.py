@@ -843,6 +843,15 @@ class RenewalEngine:
         try:
             page_source = driver.page_source
             
+            # Debug: Log a snippet of the page to see what we're searching
+            logger.debug(f"Searching for expiration in page (first 500 chars of relevant section)...")
+            
+            # Look for text containing 'expire' to debug
+            if 'expire' in page_source.lower():
+                expire_index = page_source.lower().index('expire')
+                snippet = page_source[max(0, expire_index-50):min(len(page_source), expire_index+200)]
+                logger.info(f"📋 Found 'expire' in page: ...{snippet}...")
+            
             # Look for common expiration patterns
             import re
             import pytz
@@ -874,6 +883,7 @@ class RenewalEngine:
             for pattern in datetime_patterns:
                 matches = re.findall(pattern, page_source, re.IGNORECASE)
                 if matches:
+                    logger.info(f"📅 Pattern matched: {pattern[:30]}... Found: {matches[0]}")
                     date_str = matches[0]
                     try:
                         # Clean up the string (remove 'st', 'nd', 'rd', 'th')
@@ -902,9 +912,11 @@ class RenewalEngine:
                         continue
             
             # Fall back to date-only patterns
+            logger.debug("No datetime patterns matched, trying date-only patterns...")
             for pattern in date_patterns:
                 matches = re.findall(pattern, page_source, re.IGNORECASE)
                 if matches:
+                    logger.info(f"📅 Date pattern matched: {pattern[:30]}... Found: {matches[0]}")
                     date_str = matches[0]
                     try:
                         from dateutil import parser
@@ -924,9 +936,11 @@ class RenewalEngine:
                             expiration_date_utc = expiration_date_utc.replace(year=expiration_date_utc.year + 1)
                         
                         return expiration_date_utc
-                    except:
+                    except Exception as e:
+                        logger.debug(f"Failed to parse date: {date_str}, error: {e}")
                         continue
-                        
+            
+            logger.info("📅 No expiration date patterns matched on the page")            
             return None
             
         except Exception as e:

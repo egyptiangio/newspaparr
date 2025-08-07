@@ -17,7 +17,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from library_adapters import LibraryAdapterFactory
 from captcha_solver import CaptchaSolver
 from error_handling import StandardizedLogger
-from browser_config import CAPSOLVER_USER_AGENT
+from browser_config import get_capsolver_user_agent
 from state_detector import StateDetector, check_current_state
 from date_extractor import DateExtractor
 
@@ -45,7 +45,12 @@ class RenewalEngine:
         self.current_attempt_dir = None
         
         # Log initialization at debug level only
-        logger.debug(f"🎭 Using CapSolver-compatible User-Agent: {CAPSOLVER_USER_AGENT[:60]}...")
+        # Only try to log user agent if it's available (not during build)
+        try:
+            user_agent = get_capsolver_user_agent()
+            logger.debug(f"🎭 Using CapSolver-compatible User-Agent: {user_agent[:60]}...")
+        except ValueError:
+            logger.debug("🎭 User-Agent will be set at runtime from docker-compose.yml")
         logger.debug(f"🚀 Clean RenewalEngine initialized (headless={headless}, timeout={timeout}s)")
     
     def renew_account(self, account) -> Tuple[bool, Optional[str], Optional[datetime]]:
@@ -753,12 +758,13 @@ class RenewalEngine:
             browser_user_agent = driver.execute_script("return navigator.userAgent")
             
             # Compare with CapSolver user agent
-            if browser_user_agent == CAPSOLVER_USER_AGENT:
+            expected_user_agent = get_capsolver_user_agent()
+            if browser_user_agent == expected_user_agent:
                 logger.info("✅ User agent consistency validated - browser matches CapSolver")
             else:
                 logger.warning(f"⚠️ User agent mismatch detected!")
                 logger.warning(f"Browser UA: {browser_user_agent}")
-                logger.warning(f"CapSolver UA: {CAPSOLVER_USER_AGENT}")
+                logger.warning(f"CapSolver UA: {expected_user_agent}")
                 logger.warning("This may cause CAPTCHA solving failures!")
                 
         except Exception as e:

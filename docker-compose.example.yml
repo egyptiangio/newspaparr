@@ -19,13 +19,19 @@ services:
       - RENEWAL_SPEED=normal        # Interaction speed: fast, normal, slow
       - RENEWAL_RANDOM_UA=false     # Keep false for CAPTCHA compatibility
       
-      # User Agent Configuration (Must match CapSolver's supported agents)
+      # User Agent Configuration (CRITICAL: Must be CapSolver-supported for DataDome)
+      # Supported versions: Chrome/137, 136, 135, 134, 133, 132 (NO OTHER VERSIONS WILL WORK)
+      # DO NOT CHANGE unless you verify with https://docs.capsolver.com/en/guide/captcha/datadome/
       - CAPSOLVER_USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36
       
       # CAPTCHA Solving (Optional but recommended for NYT/WSJ)
       - CAPSOLVER_API_KEY=YOUR_CAPSOLVER_API_KEY_HERE    # Get from capsolver.com
       - PROXY_HOST=your-external-hostname-or-ip.com      # Your external IP/hostname
       - SOCKS5_PROXY_PORT=3333                           # Port for SOCKS5 proxy
+      
+      # Browser Proxy Settings (Use if DataDome blocks direct connections)
+      - USE_BROWSER_PROXY=false                          # Set to true to route browser through proxy
+      - PROXY_PORT=3333                                  # Proxy port for browser connections
       
       # Optional: Debug Mode
       - RENEWAL_DEBUG=false         # Set to true for verbose logging

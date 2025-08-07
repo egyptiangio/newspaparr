@@ -87,7 +87,9 @@ class CaptchaSolver:
             current_url = driver.current_url
             
             # Validate user agent matches CapSolver requirements
-            expected_user_agent = os.environ.get('CAPSOLVER_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36')
+            expected_user_agent = os.environ.get('CAPSOLVER_USER_AGENT')
+            if not expected_user_agent:
+                raise ValueError("CAPSOLVER_USER_AGENT environment variable MUST be set")
             if user_agent != expected_user_agent:
                 logger.warning(f"⚠️ User agent mismatch! Browser: {user_agent[:60]}... Expected: {expected_user_agent[:60]}...")
             else:

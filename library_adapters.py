@@ -165,10 +165,12 @@ class LibraryAdapter(ABC):
         return url
     
     def setup_driver(self, headless: bool = True, newspaper_type: str = 'nyt') -> webdriver.Chrome:
-        """Setup WebDriver with undetected-chromedriver for all newspapers"""
+        """Setup WebDriver with enhanced anti-detection capabilities"""
         
-        # Use undetected-chromedriver for all newspapers (better bot evasion)
-        logger.info(f"Setting up undetected-chromedriver for {newspaper_type.upper()}")
+        logger.info(f"Setting up enhanced browser for {newspaper_type.upper()}")
+        
+        # Check if we need proxy for browser (e.g., if DataDome is blocking direct connections)
+        use_browser_proxy = os.environ.get('USE_BROWSER_PROXY', 'false').lower() == 'true'
         
         # Check if we're running on a server (no display)
         display = None
@@ -179,85 +181,43 @@ class LibraryAdapter(ABC):
             self.virtual_display = display  # Store reference for cleanup
             logger.info(f"Virtual display started: {os.environ.get('DISPLAY')}")
         
-        options = uc.ChromeOptions()
-        
-        # Prefer GUI mode (non-headless) for better anti-detection
-        # Only use headless if explicitly requested AND we're not using virtual display
-        if headless and display is None:
-            options.add_argument("--headless")
-            logger.info("Running in headless mode (not recommended for avoiding detection)")
-        else:
-            logger.info("Running in GUI mode (better for avoiding detection)")
-        
-        # Use environment variable User-Agent for system-wide consistency
-        user_agent = os.environ.get('CAPSOLVER_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36')
-        options.add_argument(f"user-agent={user_agent}")
-        logger.info(f"📱 Using CapSolver-compatible static User-Agent: {user_agent[:60]}...")
-        
-        # Basic options for Docker/server environment
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1920,1080")
-        
-        # Browser runs locally (home IP) - no proxy needed
-        # Only CapSolver will use the proxy to match the same IP
-        logger.info("🏠 Browser using direct connection (home IP)")
-        
-        # Incognito-like behavior: clear state for each renewal
-        options.add_argument("--incognito")
-        options.add_argument("--disable-cache")
-        options.add_argument("--disable-application-cache")
-        options.add_argument("--disable-offline-load-stale-cache")
-        options.add_argument("--disk-cache-size=0")
-        options.add_argument("--disable-background-networking")
-        options.add_argument("--disable-default-apps")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--disable-sync")
-        options.add_argument("--disable-translate")
-        options.add_argument("--hide-scrollbars")
-        options.add_argument("--metrics-recording-only")
-        options.add_argument("--mute-audio")
-        options.add_argument("--no-first-run")
-        options.add_argument("--safebrowsing-disable-auto-update")
-        options.add_argument("--disable-ipc-flooding-protection")
-        logger.info("🕵️  Configured Chrome for maximum privacy/incognito behavior")
-        
-        # Let undetected-chromedriver handle driver and browser detection automatically
+        # Try enhanced browser first
         try:
-            # Use Chromium with undetected-chromedriver (supports ARM64)
-            self.driver = uc.Chrome(options=options, browser_executable_path="/usr/bin/chromium")
-            logger.info("✅ Using undetected Chromium with auto-managed ChromeDriver (version matched)")
-            logger.info(f"Successfully created undetected Chromium driver for {newspaper_type.upper()}")
+            from enhanced_browser import EnhancedBrowser
             
-            # Apply selenium-stealth for additional anti-detection
-            logger.info("Applying selenium-stealth anti-detection measures...")
-            
-            # Get the user agent that was set (it's stored in options)
-            user_agent_for_stealth = user_agent if 'user_agent' in locals() else os.environ.get('CAPSOLVER_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36')
-            
-            # Extract platform from user agent for consistency
-            platform = "Win32"
-                
-            stealth(self.driver,
-                user_agent=user_agent_for_stealth,  # Use the same user agent
-                languages=["en-US", "en"],
-                vendor="Google Inc.",
-                platform=platform,
-                webgl_vendor="Intel Inc.",
-                renderer="Intel Iris OpenGL Engine",
-                fix_hairline=True,
+            # Use enhanced undetected driver with better anti-detection
+            self.driver = EnhancedBrowser.create_undetected_driver(
+                headless=(headless and display is None),
+                use_proxy=use_browser_proxy
             )
-            logger.info("✅ Selenium-stealth anti-detection applied")
+            
+            logger.info(f"✅ Enhanced undetected browser created for {newspaper_type.upper()}")
             
         except Exception as e:
-            logger.warning(f"Failed to create undetected driver: {str(e)}, falling back to regular driver")
-            # Fallback to regular driver if undetected fails
-            return self._setup_regular_driver(headless)
+            logger.warning(f"Failed to create enhanced browser: {str(e)}, falling back to standard enhanced driver")
+            
+            try:
+                from enhanced_browser import EnhancedBrowser
+                
+                # Try standard driver with stealth
+                self.driver = EnhancedBrowser.create_standard_driver(
+                    headless=(headless and display is None),
+                    use_proxy=use_browser_proxy
+                )
+                
+                logger.info(f"✅ Enhanced standard browser created for {newspaper_type.upper()}")
+                
+            except Exception as e2:
+                logger.error(f"Failed to create enhanced standard driver: {str(e2)}, using legacy fallback")
+                # Final fallback to legacy driver
+                return self._setup_regular_driver(headless)
         
         self.wait = WebDriverWait(self.driver, 30)
         
-        logger.info("✅ Browser ready for WSJ login (direct connection)")
+        if use_browser_proxy:
+            logger.info("✅ Browser ready with SOCKS5 proxy connection")
+        else:
+            logger.info("✅ Browser ready with direct connection")
         
         return self.driver
     
@@ -273,8 +233,10 @@ class LibraryAdapter(ABC):
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--window-size=1920,1080")
         
-        # Use same environment variable User-Agent for consistency
-        user_agent = os.environ.get('CAPSOLVER_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36')
+        # MUST use user agent from docker-compose
+        user_agent = os.environ.get('CAPSOLVER_USER_AGENT')
+        if not user_agent:
+            raise ValueError("CAPSOLVER_USER_AGENT environment variable MUST be set in docker-compose.yml")
         
         chrome_options.add_argument(f"--user-agent={user_agent}")
         logger.info(f"🎭 Fallback driver using User-Agent: {user_agent[:60]}...")

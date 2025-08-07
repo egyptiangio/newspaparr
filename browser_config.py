@@ -7,10 +7,9 @@ import os
 # CapSolver-supported user agent for DataDome CAPTCHA solving
 # Must be identical across browser initialization and CAPTCHA API calls
 # Source: Environment variable set in docker-compose.yml
-CAPSOLVER_USER_AGENT = os.environ.get(
-    'CAPSOLVER_USER_AGENT', 
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
-)
+CAPSOLVER_USER_AGENT = os.environ.get('CAPSOLVER_USER_AGENT')
+if not CAPSOLVER_USER_AGENT:
+    raise ValueError("CAPSOLVER_USER_AGENT environment variable MUST be set in docker-compose.yml")
 
 # Platform information extracted from user agent
 PLATFORM = "Win32"

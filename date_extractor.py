@@ -19,18 +19,22 @@ class DateExtractor:
     
     # Patterns with time (higher priority) - using case-insensitive flag
     DATETIME_PATTERNS = [
+        # NYT with HTML spans: "expire on <span>August 7th, 2025</span> at <span>10:12 PM</span>"
+        r'expire\s+on\s+[^>]*>([A-Za-z]+ \d{1,2}(?:st|nd|rd|th)?,? \d{4})<[^>]*>\s+at\s+[^>]*>(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)<',
+        # "Your pass is active and will expire on August 6th, 2025 at 9:09 PM"
+        r'expire\s+on\s+([A-Za-z]+ \d{1,2}(?:st|nd|rd|th)?,? \d{4})\s+at\s+(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)',
         # "August 7th, 2025 at 10:12 PM"
         r'([A-Za-z]+ \d{1,2}(?:st|nd|rd|th)?,? \d{4}\s+at\s+\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)',
         # "expires on March 15, 2024 at 11:59 PM"
         r'expires?\s+(?:on\s+)?([A-Za-z]+ \d{1,2},? \d{4}\s+at\s+\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)',
         # "valid until 03/15/2024 11:59 PM"
         r'(?:valid|active)\s+(?:through|until)\s+(\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)',
-        # "Your pass is active and will expire on August 6th, 2025 at 9:09 PM"
-        r'expire\s+on\s+([A-Za-z]+ \d{1,2}(?:st|nd|rd|th)?,? \d{4})\s+at\s+(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)',
     ]
     
     # Date-only patterns (lower priority) - using case-insensitive flag
     DATE_PATTERNS = [
+        # NYT with HTML span: "expire on <span>August 7th, 2025</span>"
+        r'expire\s+on\s+[^>]*>([A-Za-z]+ \d{1,2}(?:st|nd|rd|th)?,? \d{4})<',
         r'expires?\s+(?:on\s+)?([A-Za-z]+ \d{1,2},? \d{4})',
         r'until\s+(\d{1,2}/\d{1,2}/\d{4})',
         r'(?:valid|active)\s+(?:through|until)\s+([A-Za-z]+ \d{1,2},? \d{4})',

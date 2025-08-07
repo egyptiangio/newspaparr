@@ -67,7 +67,6 @@ class RenewalEngine:
         logger.info("=" * 60)
         logger.info(f"Library: {library_name}")
         logger.info(f"Newspaper: {account.newspaper_type.upper()}")
-        logger.info(f"Headless: {self.headless}")
         logger.info(f"Timeout: {self.timeout}s")
         logger.info("=" * 60)
         logger.info("")
@@ -639,103 +638,118 @@ class RenewalEngine:
             
             logger.info(f"Found {len(checkboxes)} checkboxes on registration page")
             
-            # Keywords to AVOID (marketing, newsletters, etc.)
-            avoid_keywords = [
-                'special offers', 'marketing', 'updates', 'newsletter', 
-                'receive', 'send me', 'email me', 'promotions', 'communications',
-                'subscribe', 'latest news', 'breaking news', 'alerts'
-            ]
-            
-            # Keywords to ACCEPT (terms, privacy, conditions)
-            accept_keywords = [
-                'terms of use', 'terms and conditions', 'agreement', 
-                'privacy notice', 'privacy policy', 'cookie notice', 
-                'cancellation policy', 'accept terms', 'agree to'
-            ]
-            
             terms_checked = False
             
-            for checkbox in checkboxes:
-                try:
-                    # Get the text associated with this checkbox
-                    # Try multiple methods to find associated text
-                    checkbox_text = ""
-                    
-                    # Method 1: Look for parent label
+            # Special handling for WSJ registration with exactly 2 checkboxes
+            if newspaper_type == 'wsj' and len(checkboxes) == 2:
+                logger.info("📋 WSJ registration with 2 checkboxes - first is marketing (skip), second is terms (check)")
+                
+                # Check only the second checkbox (terms)
+                second_checkbox = checkboxes[1]
+                if not second_checkbox.is_selected():
+                    second_checkbox.click()
+                    logger.info("✅ Checked second checkbox (terms agreement)")
+                    terms_checked = True
+                else:
+                    logger.debug("Terms checkbox already selected")
+                    terms_checked = True
+            else:
+                # Standard text-based detection for other cases
+                # Keywords to AVOID (marketing, newsletters, etc.)
+                avoid_keywords = [
+                    'special offers', 'marketing', 'updates', 'newsletter', 
+                    'receive', 'send me', 'email me', 'promotions', 'communications',
+                    'subscribe', 'latest news', 'breaking news', 'alerts'
+                ]
+                
+                # Keywords to ACCEPT (terms, privacy, conditions)
+                accept_keywords = [
+                    'terms of use', 'terms and conditions', 'agreement', 
+                    'privacy notice', 'privacy policy', 'cookie notice', 
+                    'cancellation policy', 'accept terms', 'agree to'
+                ]
+                
+                for checkbox in checkboxes:
                     try:
-                        parent = checkbox.find_element(By.XPATH, "./ancestor::label")
-                        checkbox_text = parent.text.lower()
-                    except:
-                        pass
+                        # Get the text associated with this checkbox
+                        # Try multiple methods to find associated text
+                        checkbox_text = ""
                     
-                    # Method 2: Look for following sibling text
-                    if not checkbox_text:
+                        # Method 1: Look for parent label
                         try:
-                            sibling = checkbox.find_element(By.XPATH, "./following-sibling::*[1]")
-                            checkbox_text = sibling.text.lower()
-                        except:
-                            pass
-                    
-                    # Method 3: Look for parent div/span
-                    if not checkbox_text:
-                        try:
-                            parent = checkbox.find_element(By.XPATH, "./parent::*")
+                            parent = checkbox.find_element(By.XPATH, "./ancestor::label")
                             checkbox_text = parent.text.lower()
                         except:
                             pass
                     
-                    # Method 4: Look for aria-label
-                    if not checkbox_text:
-                        try:
-                            checkbox_text = checkbox.get_attribute('aria-label') or ''
-                            checkbox_text = checkbox_text.lower()
-                        except:
-                            pass
+                        # Method 2: Look for following sibling text
+                        if not checkbox_text:
+                            try:
+                                sibling = checkbox.find_element(By.XPATH, "./following-sibling::*[1]")
+                                checkbox_text = sibling.text.lower()
+                            except:
+                                pass
                     
-                    # Method 5: Look for text in broader parent context (WSJ specific)
-                    if not checkbox_text:
-                        try:
-                            # Go up multiple levels to find text container
-                            parent = checkbox.find_element(By.XPATH, "./ancestor::div[contains(@class, 'checkbox') or contains(@class, 'form')]")
-                            checkbox_text = parent.text.lower()
-                        except:
-                            pass
+                        # Method 3: Look for parent div/span
+                        if not checkbox_text:
+                            try:
+                                parent = checkbox.find_element(By.XPATH, "./parent::*")
+                                checkbox_text = parent.text.lower()
+                            except:
+                                pass
                     
-                    # Method 6: Get index and use it to determine checkbox purpose
-                    # This is a fallback if text detection fails completely
-                    checkbox_index = checkboxes.index(checkbox)
-                    if not checkbox_text and len(checkboxes) == 2:
-                        # Common pattern: first checkbox is marketing, second is terms
-                        if checkbox_index == 0:
-                            checkbox_text = "marketing offers newsletter"  # Force skip
-                        else:
-                            checkbox_text = "terms of use agreement"  # Force accept
-                        logger.info(f"Using checkbox position fallback: index {checkbox_index}")
+                        # Method 4: Look for aria-label
+                        if not checkbox_text:
+                            try:
+                                checkbox_text = checkbox.get_attribute('aria-label') or ''
+                                checkbox_text = checkbox_text.lower()
+                            except:
+                                pass
                     
-                    logger.debug(f"Checkbox text: {checkbox_text[:100]}...")
+                        # Method 5: Look for text in broader parent context (WSJ specific)
+                        if not checkbox_text:
+                            try:
+                                # Go up multiple levels to find text container
+                                parent = checkbox.find_element(By.XPATH, "./ancestor::div[contains(@class, 'checkbox') or contains(@class, 'form')]")
+                                checkbox_text = parent.text.lower()
+                            except:
+                                pass
                     
-                    # Check if this is a marketing checkbox (SKIP)
-                    if any(avoid_word in checkbox_text for avoid_word in avoid_keywords):
-                        logger.info(f"⏭️ Skipping marketing/newsletter checkbox")
+                        # Method 6: Get index and use it to determine checkbox purpose
+                        # This is a fallback if text detection fails completely
+                        checkbox_index = checkboxes.index(checkbox)
+                        if not checkbox_text and len(checkboxes) == 2:
+                            # Common pattern: first checkbox is marketing, second is terms
+                            if checkbox_index == 0:
+                                checkbox_text = "marketing offers newsletter"  # Force skip
+                            else:
+                                checkbox_text = "terms of use agreement"  # Force accept
+                            logger.info(f"Using checkbox position fallback: index {checkbox_index}")
+                    
+                        logger.debug(f"Checkbox text: {checkbox_text[:100]}...")
+                        
+                        # Check if this is a marketing checkbox (SKIP)
+                        if any(avoid_word in checkbox_text for avoid_word in avoid_keywords):
+                            logger.info(f"⏭️ Skipping marketing/newsletter checkbox")
+                            continue
+                        
+                        # Check if this is a terms checkbox (ACCEPT)
+                        if any(accept_word in checkbox_text for accept_word in accept_keywords):
+                            if not checkbox.is_selected():
+                                checkbox.click()
+                                logger.info(f"✅ Checked terms agreement checkbox (detected: {checkbox_text[:50]}...)")
+                                terms_checked = True
+                                # Don't break - there might be multiple required terms checkboxes
+                            else:
+                                logger.debug("Terms checkbox already selected")
+                        
+                    except Exception as e:
+                        logger.debug(f"Error processing checkbox: {e}")
                         continue
-                    
-                    # Check if this is a terms checkbox (ACCEPT)
-                    if any(accept_word in checkbox_text for accept_word in accept_keywords):
-                        if not checkbox.is_selected():
-                            checkbox.click()
-                            logger.info(f"✅ Checked terms agreement checkbox (detected: {checkbox_text[:50]}...)")
-                            terms_checked = True
-                            # Don't break - there might be multiple required terms checkboxes
-                        else:
-                            logger.debug("Terms checkbox already selected")
-                    
-                except Exception as e:
-                    logger.debug(f"Error processing checkbox: {e}")
-                    continue
             
             if not terms_checked:
-                logger.warning("⚠️ No terms checkbox found based on text analysis")
-                return False
+                logger.warning("⚠️ No terms checkbox found based on text analysis - will still try to submit")
+                # Don't return False - still try to click CREATE button
             
             # Look for submit/create button
             submit_selectors = [
@@ -757,16 +771,17 @@ class RenewalEngine:
                     else:
                         button = driver.find_element(By.CSS_SELECTOR, selector)
                     
-                    if button and button.is_enabled():
+                    if button and button.is_enabled() and button.is_displayed():
+                        logger.info(f"🔘 Found CREATE/submit button: {selector}")
                         button.click()
-                        logger.info(f"✅ Clicked submit button after accepting terms")
+                        logger.info(f"✅ Clicked CREATE button to complete registration")
                         self._human_delay('medium')
                         return True
                 except:
                     continue
             
-            logger.debug("Terms checkbox checked but no submit button found")
-            return False
+            logger.warning("⚠️ No CREATE/submit button found on registration page")
+            return terms_checked  # Return True if we at least checked the terms
             
         except Exception as e:
             logger.debug(f"Terms acceptance failed: {str(e)}")

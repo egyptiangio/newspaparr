@@ -2,7 +2,7 @@
 
 Automated library card renewal system for digital newspaper access. Keep your New York Times and Wall Street Journal access active through your library's digital passes.
 
-![Version](https://img.shields.io/badge/version-0.5.5-blue)
+![Version](https://img.shields.io/badge/version-0.5.6-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Docker](https://img.shields.io/badge/docker-ready-blue)
 

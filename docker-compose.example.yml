@@ -3,26 +3,30 @@ services:
     image: ghcr.io/egyptiangio/newspaparr:latest
     container_name: newspaparr
     ports:
-      - "1851:1851"
-      - "3333:3333"  # SOCKS5 proxy for CapSolver
+      - "1851:1851"           # Web interface
+      - "3333:3333"           # SOCKS5 proxy for CAPTCHA solving
     volumes:
-      - ./data:/app/data
+      - ./data:/app/data      # Persistent data storage
     restart: unless-stopped
     environment:
       # Basic Configuration
-      - TZ=America/New_York
-      - PUID=1000
-      - PGID=1000
+      - TZ=America/New_York   # Your timezone
+      - PUID=1000             # User ID
+      - PGID=1000             # Group ID
       
       # Anti-Detection Settings
-      - RENEWAL_HEADLESS=false  # Use GUI mode with virtual display for better anti-detection
-      - RENEWAL_SPEED=normal    # Delay speed: fast, normal, or slow
-      - RENEWAL_RANDOM_UA=false  # Use static CapSolver-compatible User-Agent
+      - RENEWAL_HEADLESS=false     # Use GUI mode for better success
+      - RENEWAL_SPEED=normal        # Interaction speed: fast, normal, slow
+      - RENEWAL_RANDOM_UA=false     # Keep false for CAPTCHA compatibility
       
-      # CapSolver DataDome User Agent - MUST match across browser and CAPTCHA API
+      # User Agent Configuration (Must match CapSolver's supported agents)
       - CAPSOLVER_USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36
       
-      # CAPTCHA Solving
-      - CAPSOLVER_API_KEY=YOUR_CAPSOLVER_API_KEY_HERE  # CapSolver API key
-      - PROXY_HOST=your-hostname.com  # Your dynamic DNS for CAPTCHA services to connect
-      - SOCKS5_PROXY_PORT=3333  # SOCKS5 proxy port for CapSolver
+      # CAPTCHA Solving (Optional but recommended for NYT/WSJ)
+      - CAPSOLVER_API_KEY=YOUR_CAPSOLVER_API_KEY_HERE    # Get from capsolver.com
+      - PROXY_HOST=your-external-hostname-or-ip.com      # Your external IP/hostname
+      - SOCKS5_PROXY_PORT=3333                           # Port for SOCKS5 proxy
+      
+      # Optional: Debug Mode
+      - RENEWAL_DEBUG=false         # Set to true for verbose logging
+      - DEBUG_SCREENSHOTS=false     # Set to true to save screenshots

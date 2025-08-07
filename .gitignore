@@ -33,6 +33,7 @@ sessions/
 
 # Docker
 *.log
+docker-compose.yml
 docker-compose.override.yml
 .dockerignore
 
@@ -142,5 +143,6 @@ docs/_build/
 docs/.doctrees/
 *.rst~
 
-# CLAUDE.md is tracked - it's project instructions
-!CLAUDE.md
+# Personal project files
+CLAUDE.md
+BOOTSTRAP_SUMMARY.md

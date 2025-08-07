@@ -40,8 +40,10 @@ class EnhancedBrowser:
         # Create undetected Chrome options
         options = uc.ChromeOptions()
         
-        # Basic options
+        # Force user agent
         options.add_argument(f"user-agent={user_agent}")
+        
+        # Basic options
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
@@ -54,15 +56,10 @@ class EnhancedBrowser:
         # Additional anti-detection arguments
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--disable-features=UserAgentClientHint")
-        options.add_argument("--disable-web-security")
         
         # Mimic real browser behavior
         options.add_argument("--enable-features=NetworkService,NetworkServiceInProcess")
         options.add_argument("--force-color-profile=srgb")
-        
-        # Add random chrome extensions directory (empty but present)
-        options.add_argument("--load-extension=/tmp/fake_extension")
-        os.makedirs("/tmp/fake_extension", exist_ok=True)
         
         # Add proxy if requested
         if use_proxy:
@@ -73,9 +70,10 @@ class EnhancedBrowser:
         
         # GUI mode is better for anti-detection
         if headless:
-            # Use headless=new mode which is less detectable
-            options.add_argument("--headless=new")
-            logger.info("Running in new headless mode")
+            # Use older headless flag to avoid HeadlessChrome detection
+            options.add_argument("--headless")
+            options.add_argument("--disable-software-rasterizer")
+            logger.info("Running in headless mode")
         else:
             logger.info("Running in GUI mode (better for avoiding detection)")
         
@@ -87,8 +85,15 @@ class EnhancedBrowser:
                 browser_executable_path="/usr/bin/chromium"
             )
             
+            # Force user agent override at CDP level
+            driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+                "userAgent": user_agent,
+                "platform": "Win32" if "Windows" in user_agent else "MacIntel",
+                "acceptLanguage": "en-US,en"
+            })
+            
             # Additional JavaScript modifications
-            cls._apply_anti_detection_scripts(driver)
+            cls._apply_anti_detection_scripts(driver, user_agent)
             
             # Random delay to appear more human
             time.sleep(random.uniform(0.5, 1.5))
@@ -117,8 +122,10 @@ class EnhancedBrowser:
         
         chrome_options = Options()
         
-        # Basic options
+        # Force user agent FIRST
         chrome_options.add_argument(f"--user-agent={user_agent}")
+        
+        # Basic options
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
@@ -141,7 +148,9 @@ class EnhancedBrowser:
             chrome_options.add_argument(f"--proxy-server=socks5://{proxy_host}:{proxy_port}")
         
         if headless:
-            chrome_options.add_argument("--headless=new")
+            # Use older headless flag to avoid HeadlessChrome detection
+            chrome_options.add_argument("--headless")
+            chrome_options.add_argument("--disable-software-rasterizer")
         
         # Use Chromium
         chrome_options.binary_location = "/usr/bin/chromium"
@@ -153,6 +162,32 @@ class EnhancedBrowser:
             service=service,
             options=chrome_options
         )
+        
+        # Force user agent override at multiple levels
+        try:
+            # CDP override
+            driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+                "userAgent": user_agent,
+                "platform": "Win32" if "Windows" in user_agent else "MacIntel",
+                "acceptLanguage": "en-US,en"
+            })
+            
+            # Page override
+            driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                'source': f'''
+                    Object.defineProperty(navigator, 'userAgent', {{
+                        get: () => '{user_agent}'
+                    }});
+                    Object.defineProperty(navigator, 'platform', {{
+                        get: () => '{"Win32" if "Windows" in user_agent else "MacIntel"}'
+                    }});
+                    Object.defineProperty(navigator, 'vendor', {{
+                        get: () => 'Google Inc.'
+                    }});
+                '''
+            })
+        except Exception as e:
+            logger.warning(f"Could not apply CDP overrides: {e}")
         
         # Apply stealth
         stealth(driver,
@@ -167,7 +202,7 @@ class EnhancedBrowser:
         )
         
         # Additional anti-detection scripts
-        cls._apply_anti_detection_scripts(driver)
+        cls._apply_anti_detection_scripts(driver, user_agent)
         
         # Random delay
         time.sleep(random.uniform(0.5, 1.5))
@@ -176,7 +211,7 @@ class EnhancedBrowser:
         return driver
     
     @staticmethod
-    def _apply_anti_detection_scripts(driver):
+    def _apply_anti_detection_scripts(driver, user_agent):
         """Apply additional anti-detection JavaScript modifications"""
         
         # Override webdriver property
@@ -184,6 +219,24 @@ class EnhancedBrowser:
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined
             });
+        """)
+        
+        # Force user agent
+        driver.execute_script(f"""
+            Object.defineProperty(navigator, 'userAgent', {{
+                get: () => '{user_agent}'
+            }});
+            Object.defineProperty(navigator, 'appVersion', {{
+                get: () => '{user_agent.replace("Mozilla/", "")}'
+            }});
+        """)
+        
+        # Override platform
+        platform = "Win32" if "Windows" in user_agent else "MacIntel"
+        driver.execute_script(f"""
+            Object.defineProperty(navigator, 'platform', {{
+                get: () => '{platform}'
+            }});
         """)
         
         # Override plugins to appear more realistic
@@ -209,25 +262,6 @@ class EnhancedBrowser:
                     Promise.resolve({ state: Notification.permission }) :
                     originalQuery(parameters)
             );
-        """)
-        
-        # Add random mouse movements simulation
-        driver.execute_script("""
-            let mouseX = Math.random() * window.innerWidth;
-            let mouseY = Math.random() * window.innerHeight;
-            
-            document.addEventListener('mousemove', function(e) {
-                mouseX = e.clientX;
-                mouseY = e.clientY;
-            });
-            
-            // Simulate random mouse movements
-            setInterval(() => {
-                mouseX += (Math.random() - 0.5) * 20;
-                mouseY += (Math.random() - 0.5) * 20;
-                mouseX = Math.max(0, Math.min(window.innerWidth, mouseX));
-                mouseY = Math.max(0, Math.min(window.innerHeight, mouseY));
-            }, 100);
         """)
         
         # Override chrome property

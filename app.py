@@ -33,7 +33,7 @@ from library_adapters import LibraryAdapterFactory
 from renewal_engine import RenewalEngine
 
 # Application version
-__version__ = '0.5.11'
+__version__ = '0.5.12'
 
 # Validate configuration at startup
 if __name__ == '__main__':

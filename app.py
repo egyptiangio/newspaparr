@@ -33,7 +33,7 @@ from library_adapters import LibraryAdapterFactory
 from renewal_engine import RenewalEngine
 
 # Application version
-__version__ = '0.5.12'
+__version__ = '0.5.13'
 
 # Validate configuration at startup
 if __name__ == '__main__':
@@ -423,7 +423,13 @@ def manual_renewal(id):
     
     try:
         # Check if we should disable headless mode (for debugging)
-        headless = request.form.get('headless', 'true').lower() == 'true'
+        # First check form parameter, then fall back to environment variable
+        form_headless = request.form.get('headless')
+        if form_headless:
+            headless = form_headless.lower() == 'true'
+        else:
+            # Use environment variable default
+            headless = os.environ.get('RENEWAL_HEADLESS', 'true').lower() != 'false'
         
         renewal_engine = RenewalEngine(headless=headless)
         success, result_url, expiration_datetime = renewal_engine.renew_account(account)

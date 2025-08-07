@@ -15,9 +15,7 @@ services:
       - PGID=1000             # Group ID
       
       # Anti-Detection Settings
-      - RENEWAL_HEADLESS=false     # Use GUI mode for better success
       - RENEWAL_SPEED=normal        # Interaction speed: fast, normal, slow
-      - RENEWAL_RANDOM_UA=false     # Keep false for CAPTCHA compatibility
       
       # User Agent Configuration (CRITICAL: Must be CapSolver-supported for DataDome)
       # Supported versions: Chrome/137, 136, 135, 134, 133, 132 (NO OTHER VERSIONS WILL WORK)

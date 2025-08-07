@@ -164,7 +164,7 @@ class LibraryAdapter(ABC):
             
         return url
     
-    def setup_driver(self, headless: bool = True, newspaper_type: str = 'nyt') -> webdriver.Chrome:
+    def setup_driver(self, headless: bool = False, newspaper_type: str = 'nyt') -> webdriver.Chrome:
         """Setup WebDriver with enhanced anti-detection capabilities"""
         
         logger.info(f"Setting up enhanced browser for {newspaper_type.upper()}")
@@ -221,7 +221,7 @@ class LibraryAdapter(ABC):
         
         return self.driver
     
-    def _setup_regular_driver(self, headless: bool = True) -> webdriver.Chrome:
+    def _setup_regular_driver(self, headless: bool = False) -> webdriver.Chrome:
         """Setup regular ChromeDriver (for WSJ or fallback)"""
         chrome_options = Options()
         

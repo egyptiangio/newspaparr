@@ -228,13 +228,7 @@ Find your timezone: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 ### High Memory Usage
 
 **Solutions**:
-1. **Enable headless mode** (uses less memory):
-   ```yaml
-   environment:
-     - RENEWAL_HEADLESS=true
-   ```
-
-2. **Limit Chrome memory**:
+1. **Limit Chrome memory**:
    ```bash
    # Add to docker-compose.yml
    deploy:

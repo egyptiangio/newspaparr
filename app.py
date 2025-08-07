@@ -33,7 +33,7 @@ from library_adapters import LibraryAdapterFactory
 from renewal_engine import RenewalEngine
 
 # Application version
-__version__ = '0.5.13'
+__version__ = '0.5.14'
 
 # Validate configuration at startup
 if __name__ == '__main__':
@@ -422,14 +422,8 @@ def manual_renewal(id):
     logger = StandardizedLogger(__name__)
     
     try:
-        # Check if we should disable headless mode (for debugging)
-        # First check form parameter, then fall back to environment variable
-        form_headless = request.form.get('headless')
-        if form_headless:
-            headless = form_headless.lower() == 'true'
-        else:
-            # Use environment variable default
-            headless = os.environ.get('RENEWAL_HEADLESS', 'true').lower() != 'false'
+        # Always use GUI mode with virtual display for better anti-detection
+        headless = False
         
         renewal_engine = RenewalEngine(headless=headless)
         success, result_url, expiration_datetime = renewal_engine.renew_account(account)
@@ -888,8 +882,8 @@ def run_account_renewal(account_id):
         if not account or not account.active:
             return
         
-        # Check environment variable for headless mode
-        headless = os.environ.get('RENEWAL_HEADLESS', 'true').lower() != 'false'
+        # Always use GUI mode with virtual display for better anti-detection
+        headless = False
         renewal_engine = RenewalEngine(headless=headless)
         success, result_url, expiration_datetime = renewal_engine.renew_account(account)
         

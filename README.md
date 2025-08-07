@@ -93,9 +93,7 @@ services:
       - PGID=1000
       
       # Anti-Detection Settings
-      - RENEWAL_HEADLESS=false     # Use GUI mode for better success
       - RENEWAL_SPEED=normal        # Interaction speed: fast, normal, slow
-      - RENEWAL_RANDOM_UA=false     # Keep false for CAPTCHA compatibility
       
       # CAPTCHA Solving (For NYT/WSJ bot detection)
       - CAPSOLVER_API_KEY=YOUR_API_KEY_HERE

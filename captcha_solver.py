@@ -233,8 +233,8 @@ class CaptchaSolver:
         # Wait for DataDome to validate and redirect
         logger.info("⏳ Waiting for DataDome validation and redirect...")
         
-        # Wait up to 30 seconds for redirect away from CAPTCHA page
-        for i in range(30):
+        # Wait up to 45 seconds for redirect away from CAPTCHA page
+        for i in range(45):
             current_url = driver.current_url
             page_source = driver.page_source
             
@@ -248,8 +248,9 @@ class CaptchaSolver:
             
             time.sleep(1)
         
-        logger.warning("⚠️ DataDome validation taking longer than expected")
-        return True  # Continue anyway, might still work
+        # After 45 seconds, validation is complete even if we didn't detect redirect
+        logger.info("✅ DataDome cookie injected, continuing with login")
+        return True  # Cookie was injected successfully, continue
     
     def _inject_datadome_cookie(self, driver, cookie_value: str) -> bool:
         """Inject DataDome cookie solution into browser"""

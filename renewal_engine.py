@@ -26,7 +26,7 @@ logger = StandardizedLogger(__name__)
 class RenewalEngine:
     """Clean renewal engine with priority-based login and CAPTCHA solving"""
     
-    def __init__(self, headless: bool = True, timeout: int = 60):
+    def __init__(self, headless: bool = False, timeout: int = 60):
         self.headless = headless
         self.timeout = timeout
         self.renewal_speed = os.environ.get('RENEWAL_SPEED', 'normal')
@@ -370,6 +370,11 @@ class RenewalEngine:
                     logger.info("✅ Password-only form submitted")
                     form_submitted = True
                 
+                # Priority 4: Check for terms agreement page (WSJ registration)
+                elif self._try_accept_terms(driver, newspaper_type):
+                    logger.info("✅ Terms agreement accepted")
+                    form_submitted = True
+                
                 # If we submitted a form, wait and check the result
                 if form_submitted:
                     self._human_delay('long')  # Wait for navigation/processing
@@ -606,6 +611,139 @@ class RenewalEngine:
             
         except Exception as e:
             logger.debug(f"Password-only flow failed: {str(e)}")
+            return False
+    
+    def _try_accept_terms(self, driver, newspaper_type: str) -> bool:
+        """Check for and accept terms agreement page (Priority 4)"""
+        try:
+            # Check if we're on a registration/terms page
+            current_url = driver.current_url.lower()
+            page_source = driver.page_source.lower()
+            
+            # Check for registration/terms indicators
+            if not any(indicator in current_url for indicator in ['register', 'registration', 'terms', 'agreement']):
+                if not any(text in page_source for text in ['terms of use', 'agree to the terms', 'accept terms', 'create account']):
+                    return False
+            
+            logger.info("📝 Terms agreement page detected")
+            
+            # Find all checkboxes on the page
+            checkboxes = driver.find_elements(By.CSS_SELECTOR, "input[type='checkbox']")
+            if not checkboxes:
+                logger.debug("No checkboxes found on terms page")
+                return False
+            
+            # Keywords to AVOID (marketing, newsletters, etc.)
+            avoid_keywords = [
+                'special offers', 'marketing', 'updates', 'newsletter', 
+                'receive', 'send me', 'email me', 'promotions', 'communications',
+                'subscribe', 'latest news', 'breaking news', 'alerts'
+            ]
+            
+            # Keywords to ACCEPT (terms, privacy, conditions)
+            accept_keywords = [
+                'terms of use', 'terms and conditions', 'agreement', 
+                'privacy notice', 'privacy policy', 'cookie notice', 
+                'cancellation policy', 'accept terms', 'agree to'
+            ]
+            
+            terms_checked = False
+            
+            for checkbox in checkboxes:
+                try:
+                    # Get the text associated with this checkbox
+                    # Try multiple methods to find associated text
+                    checkbox_text = ""
+                    
+                    # Method 1: Look for parent label
+                    try:
+                        parent = checkbox.find_element(By.XPATH, "./ancestor::label")
+                        checkbox_text = parent.text.lower()
+                    except:
+                        pass
+                    
+                    # Method 2: Look for following sibling text
+                    if not checkbox_text:
+                        try:
+                            sibling = checkbox.find_element(By.XPATH, "./following-sibling::*[1]")
+                            checkbox_text = sibling.text.lower()
+                        except:
+                            pass
+                    
+                    # Method 3: Look for parent div/span
+                    if not checkbox_text:
+                        try:
+                            parent = checkbox.find_element(By.XPATH, "./parent::*")
+                            checkbox_text = parent.text.lower()
+                        except:
+                            pass
+                    
+                    # Method 4: Look for aria-label
+                    if not checkbox_text:
+                        try:
+                            checkbox_text = checkbox.get_attribute('aria-label') or ''
+                            checkbox_text = checkbox_text.lower()
+                        except:
+                            pass
+                    
+                    logger.debug(f"Checkbox text: {checkbox_text[:100]}...")
+                    
+                    # Check if this is a marketing checkbox (SKIP)
+                    if any(avoid_word in checkbox_text for avoid_word in avoid_keywords):
+                        logger.info(f"⏭️ Skipping marketing/newsletter checkbox")
+                        continue
+                    
+                    # Check if this is a terms checkbox (ACCEPT)
+                    if any(accept_word in checkbox_text for accept_word in accept_keywords):
+                        if not checkbox.is_selected():
+                            checkbox.click()
+                            logger.info(f"✅ Checked terms agreement checkbox (detected: {checkbox_text[:50]}...)")
+                            terms_checked = True
+                            # Don't break - there might be multiple required terms checkboxes
+                        else:
+                            logger.debug("Terms checkbox already selected")
+                    
+                except Exception as e:
+                    logger.debug(f"Error processing checkbox: {e}")
+                    continue
+            
+            if not terms_checked:
+                logger.warning("⚠️ No terms checkbox found based on text analysis")
+                return False
+            
+            # Look for submit/create button
+            submit_selectors = [
+                "button:contains('CREATE')",
+                "button:contains('Create')",
+                "button:contains('Continue')",
+                "button:contains('Submit')",
+                "button:contains('Accept')",
+                "button[type='submit']",
+                "#create-account-button",
+                ".submit-button"
+            ]
+            
+            for selector in submit_selectors:
+                try:
+                    if "contains" in selector:
+                        text = selector.split("'")[1]
+                        button = driver.find_element(By.XPATH, f"//button[contains(text(), '{text}')]")
+                    else:
+                        button = driver.find_element(By.CSS_SELECTOR, selector)
+                    
+                    if button and button.is_enabled():
+                        button.click()
+                        logger.info(f"✅ Clicked submit button after accepting terms")
+                        self._human_delay('medium')
+                        return True
+                except:
+                    continue
+            
+            logger.debug("Terms checkbox checked but no submit button found")
+            return False
+            
+        except Exception as e:
+            logger.debug(f"Terms acceptance failed: {str(e)}")
             return False
     
     def _click_sign_in_link_if_present(self, driver) -> bool:

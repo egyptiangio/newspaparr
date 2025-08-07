@@ -79,11 +79,6 @@ class ConfigValidator:
                 'default': 'false',
                 'validator': self._validate_boolean
             },
-            'RENEWAL_HEADLESS': {
-                'description': 'Run browser in headless mode',
-                'default': 'true',
-                'validator': self._validate_boolean
-            },
             'RENEWAL_SPEED': {
                 'description': 'Renewal speed setting',
                 'default': 'normal',
@@ -293,10 +288,9 @@ class ConfigValidator:
         if Path('/.dockerenv').exists():
             self.logger.debug("Running in Docker container")
         
-        # Check display availability for GUI mode
-        headless = os.environ.get('RENEWAL_HEADLESS', 'true').lower() == 'true'
-        if not headless and not os.environ.get('DISPLAY'):
-            warnings.append("⚠️ GUI mode enabled but no DISPLAY set - virtual display will be used")
+        # Always using GUI mode with virtual display for better anti-detection
+        if not os.environ.get('DISPLAY'):
+            warnings.append("⚠️ No DISPLAY set - virtual display will be used for GUI mode")
     
     def _check_captcha_configuration(self, config: Dict[str, Any], warnings: List[str]):
         """Check CAPTCHA configuration"""

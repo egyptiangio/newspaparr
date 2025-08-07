@@ -81,10 +81,10 @@ class EnhancedBrowser:
         
         # Create driver with undetected-chromedriver
         try:
+            # Use same configuration as original working code
             driver = uc.Chrome(
                 options=options,
-                version_main=None,  # Auto-detect version
-                driver_executable_path="/usr/bin/chromedriver"
+                browser_executable_path="/usr/bin/chromium"
             )
             
             # Additional JavaScript modifications

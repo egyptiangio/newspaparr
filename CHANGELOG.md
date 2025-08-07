@@ -5,6 +5,14 @@ All notable changes to Newspaparr will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5] - 2025-08-07
+
+### Fixed
+- Add 1 minute to all renewal intervals for reliability
+- Update UI to show actual scheduled interval (e.g., "24h 1m")
+- Fix interval-based fallback scheduling to include +1 minute
+- Add form hint explaining the +1 minute behavior
+
 ## [0.5.4] - 2025-08-07
 
 ### Fixed

@@ -33,7 +33,7 @@ from library_adapters import LibraryAdapterFactory
 from renewal_engine import RenewalEngine
 
 # Application version
-__version__ = '0.5.20'
+__version__ = '0.5.21'
 
 # Validate configuration at startup
 if __name__ == '__main__':
@@ -269,7 +269,7 @@ class AccountForm(FlaskForm):
     ], default='nyt')
     username = StringField('Newspaper Email', validators=[DataRequired()])
     password = PasswordField('Newspaper Password', validators=[DataRequired()])
-    renewal_interval = IntegerField('Renewal Interval Override (hours)', validators=[], required=False)
+    renewal_interval = IntegerField('Renewal Interval Override (hours)', validators=[])
     active = BooleanField('Active', default=True)
 
 class LibraryForm(FlaskForm):

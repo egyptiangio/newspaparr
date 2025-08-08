@@ -30,6 +30,24 @@
                         </div>
                         <div>
                             <h4 class="text-xl font-bold text-gray-900 dark:text-white">{{ config.name }}</h4>
+                            <div class="flex items-center space-x-2 mt-1">
+                                <!-- Newspaper Support Indicators -->
+                                {% if config.nyt_url %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-black text-white" title="New York Times supported">
+                                        NYT
+                                    </span>
+                                {% endif %}
+                                {% if config.wsj_url %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-900 text-white" title="Wall Street Journal supported">
+                                        WSJ
+                                    </span>
+                                {% endif %}
+                                {% if not config.nyt_url and not config.wsj_url %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-400 text-white" title="No newspapers configured">
+                                        No newspapers configured
+                                    </span>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                     
@@ -71,11 +89,20 @@
                                 <span class="text-gray-600 dark:text-gray-400">Renewal Interval:</span>
                                 <span class="ml-2 font-medium text-gray-900 dark:text-white">{{ config.default_renewal_hours }}h 1m</span>
                             </div>
-                            <div class="flex items-center text-sm">
-                                <i class="fas fa-cogs text-gray-400 w-5 mr-2"></i>
-                                <span class="text-gray-600 dark:text-gray-400">Type:</span>
-                                <span class="ml-2 font-medium text-gray-900 dark:text-white">{{ config.type|library_type_display }}</span>
-                            </div>
+                            {% if config.nyt_url %}
+                                <div class="flex items-center text-sm">
+                                    <i class="fas fa-newspaper text-gray-400 w-5 mr-2"></i>
+                                    <span class="text-gray-600 dark:text-gray-400">NYT URL:</span>
+                                    <span class="ml-2 font-medium text-gray-900 dark:text-white truncate" title="{{ config.nyt_url }}">Configured</span>
+                                </div>
+                            {% endif %}
+                            {% if config.wsj_url %}
+                                <div class="flex items-center text-sm">
+                                    <i class="fas fa-newspaper text-gray-400 w-5 mr-2"></i>
+                                    <span class="text-gray-600 dark:text-gray-400">WSJ URL:</span>
+                                    <span class="ml-2 font-medium text-gray-900 dark:text-white truncate" title="{{ config.wsj_url }}">Configured</span>
+                                </div>
+                            {% endif %}
                             {% set config_data = config.custom_config|from_json if config.custom_config else {} %}
                             {% if config_data.login_url %}
                                 <div class="flex items-center text-sm">
@@ -147,7 +174,7 @@
 
 {% if configs %}
 <!-- Library Statistics -->
-<div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center">
         <div class="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center mx-auto mb-4">
             <i class="fas fa-university text-white text-xl"></i>
@@ -158,18 +185,10 @@
     
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center">
         <div class="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-sync-alt text-white text-xl"></i>
+            <i class="fas fa-users text-white text-xl"></i>
         </div>
-        <h4 class="text-2xl font-bold text-gray-900 dark:text-white">{{ configs|selectattr('type', 'equalto', 'generic_oclc')|list|length + configs|selectattr('type', 'equalto', 'custom')|list|length }}</h4>
-        <p class="text-gray-600 dark:text-gray-400">Auto-Renewal Ready</p>
-    </div>
-    
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center">
-        <div class="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-cogs text-white text-xl"></i>
-        </div>
-        <h4 class="text-2xl font-bold text-gray-900 dark:text-white">{{ configs|selectattr('custom_config')|list|length }}</h4>
-        <p class="text-gray-600 dark:text-gray-400">Custom Configured</p>
+        <h4 class="text-2xl font-bold text-gray-900 dark:text-white">{{ accounts|length if accounts else 0 }}</h4>
+        <p class="text-gray-600 dark:text-gray-400">Total Accounts</p>
     </div>
 </div>
 {% endif %}

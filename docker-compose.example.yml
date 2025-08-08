@@ -35,3 +35,6 @@ services:
       - RENEWAL_DEBUG=false         # Set to true for verbose logging
       - DEBUG_SCREENSHOTS=false     # Set to true to save screenshots
       - SCREENSHOT_RETENTION=100    # Number of screenshot attempts to keep (default: 100)
+      
+      # Optional: Reverse Proxy Settings
+      - BEHIND_PROXY=false          # Set to true if running behind nginx/traefik/etc

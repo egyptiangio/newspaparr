@@ -214,6 +214,17 @@ environment:
 
 Screenshots will be saved to `./data/screenshots/`
 
+### Reverse Proxy Configuration
+
+If running behind a reverse proxy (nginx, Traefik, Caddy, etc.):
+
+```yaml
+environment:
+  - BEHIND_PROXY=true    # Enable proxy header processing
+```
+
+This ensures proper handling of X-Forwarded headers from your reverse proxy.
+
 ## 📊 API Endpoints
 
 The web interface exposes several API endpoints:

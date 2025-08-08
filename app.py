@@ -33,7 +33,7 @@ from library_adapters import LibraryAdapterFactory
 from renewal_engine import RenewalEngine
 
 # Application version
-__version__ = '0.5.22'
+__version__ = '0.5.23'
 
 # Validate configuration at startup
 if __name__ == '__main__':
@@ -274,6 +274,21 @@ class AccountForm(FlaskForm):
     renewal_interval = IntegerField('Renewal Interval Override (hours)', validators=[])
     active = BooleanField('Active', default=True)
 
+class EditAccountForm(FlaskForm):
+    """Form for editing account configuration - passwords optional"""
+    name = StringField('Account Name', validators=[DataRequired()])
+    library_type = SelectField('Library Type', choices=[])
+    library_username = StringField('Library Username/Card Number', validators=[DataRequired()])
+    library_password = PasswordField('Library Password/PIN', validators=[])  # No DataRequired
+    newspaper_type = SelectField('Newspaper', choices=[
+        ('nyt', 'New York Times'),
+        ('wsj', 'Wall Street Journal')
+    ], default='nyt')
+    username = StringField('Newspaper Email', validators=[DataRequired()])
+    password = PasswordField('Newspaper Password', validators=[])  # No DataRequired
+    renewal_interval = IntegerField('Renewal Interval Override (hours)', validators=[])
+    active = BooleanField('Active', default=True)
+
 class LibraryForm(FlaskForm):
     """Form for library configuration"""
     name = StringField('Library Name', validators=[DataRequired()])
@@ -384,15 +399,13 @@ def edit_account(id):
     original_library_password = account.library_password
     original_password = account.password
     
-    form = AccountForm(obj=account)
+    form = EditAccountForm(obj=account)  # Use EditAccountForm which has optional passwords
     
     # Get available active library configurations from database
     library_configs = LibraryConfig.query.filter_by(active=True).all()
     form.library_type.choices = [(config.type, config.name) for config in library_configs]
     
-    # Make password fields optional for editing
-    form.library_password.validators = []
-    form.password.validators = []
+    # Clear password fields on GET to show placeholders
     if request.method == 'GET':
         form.library_password.data = ''
         form.password.data = ''

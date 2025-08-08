@@ -652,27 +652,51 @@ class RenewalEngine:
                     logger.info(f"First checkbox (marketing) is selected: {first_checkbox.is_selected()}")
                     logger.info(f"Second checkbox (terms) is selected: {second_checkbox.is_selected()}")
                     
-                    # Use JavaScript to manipulate checkboxes since regular click doesn't work
+                    # Try clicking the label elements instead of the checkboxes themselves
+                    # Find labels associated with checkboxes
+                    try:
+                        # Method 1: Try finding label by 'for' attribute
+                        first_label = driver.find_element(By.CSS_SELECTOR, f"label[for='{first_checkbox.get_attribute('id')}']")
+                        second_label = driver.find_element(By.CSS_SELECTOR, f"label[for='{second_checkbox.get_attribute('id')}']")
+                        logger.info("Found labels via 'for' attribute")
+                    except:
+                        # Method 2: Try finding labels that contain the checkboxes
+                        try:
+                            first_label = first_checkbox.find_element(By.XPATH, "./parent::*/parent::*/label")
+                            second_label = second_checkbox.find_element(By.XPATH, "./parent::*/parent::*/label")
+                            logger.info("Found labels via parent traversal")
+                        except:
+                            # Method 3: Just get all labels and match by index
+                            labels = driver.find_elements(By.CSS_SELECTOR, "label")
+                            first_label = labels[0] if len(labels) > 0 else None
+                            second_label = labels[1] if len(labels) > 1 else None
+                            logger.info(f"Found {len(labels)} labels, using first two")
+                    
                     # Uncheck first checkbox if it's checked (it's pre-checked by WSJ)
-                    if first_checkbox.is_selected():
-                        driver.execute_script("""
-                            arguments[0].checked = false;
-                            arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
-                        """, first_checkbox)
+                    if first_checkbox.is_selected() and first_label:
+                        first_label.click()
                         self._human_delay('small')
-                        logger.info("❌ Unchecked first checkbox (marketing - pre-checked by WSJ)")
+                        logger.info("❌ Unchecked first checkbox (marketing) by clicking label")
                     
                     # Check second checkbox if it's not checked
-                    if not second_checkbox.is_selected():
-                        driver.execute_script("""
-                            arguments[0].checked = true;
-                            arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
-                        """, second_checkbox)
+                    if not second_checkbox.is_selected() and second_label:
+                        second_label.click()
                         self._human_delay('small')
-                        logger.info("✅ Checked second checkbox (terms agreement)")
+                        logger.info("✅ Checked second checkbox (terms) by clicking label")
+                        terms_checked = True
+                    elif second_checkbox.is_selected():
+                        logger.info("Terms checkbox already selected")
                         terms_checked = True
                     else:
-                        logger.info("Terms checkbox already selected")
+                        logger.warning("Could not find label for terms checkbox")
+                        # Fallback to JavaScript
+                        driver.execute_script("""
+                            arguments[0].checked = true;
+                            arguments[0].setAttribute('checked', 'checked');
+                            arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+                            arguments[0].dispatchEvent(new Event('click', { bubbles: true }));
+                        """, second_checkbox)
+                        logger.info("✅ Used JavaScript fallback for terms checkbox")
                         terms_checked = True
                         
                 except Exception as e:

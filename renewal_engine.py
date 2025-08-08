@@ -35,7 +35,7 @@ class RenewalEngine:
         self.debug_mode = os.environ.get('DEBUG_MODE', 'false').lower() == 'true'
         
         # Screenshot retention limit (number of attempts to keep)
-        self.screenshot_retention = int(os.environ.get('SCREENSHOT_RETENTION', '10'))
+        self.screenshot_retention = int(os.environ.get('SCREENSHOT_RETENTION', '100'))
         
         # Screenshot directory with attempt-specific folders
         self.screenshot_base_dir = "/app/data/debug/screenshots"

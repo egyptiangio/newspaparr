@@ -209,6 +209,7 @@ Enable detailed logging and screenshots:
 environment:
   - LOG_LEVEL=DEBUG
   - DEBUG_SCREENSHOTS=true
+  - SCREENSHOT_RETENTION=100    # Number of screenshot attempts to keep (default: 100)
 ```
 
 Screenshots will be saved to `./data/screenshots/`

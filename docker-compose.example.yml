@@ -34,3 +34,4 @@ services:
       # Optional: Debug Mode
       - RENEWAL_DEBUG=false         # Set to true for verbose logging
       - DEBUG_SCREENSHOTS=false     # Set to true to save screenshots
+      - SCREENSHOT_RETENTION=100    # Number of screenshot attempts to keep (default: 100)

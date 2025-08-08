@@ -33,7 +33,7 @@ from library_adapters import LibraryAdapterFactory
 from renewal_engine import RenewalEngine
 
 # Application version
-__version__ = '0.5.19'
+__version__ = '0.5.20'
 
 # Validate configuration at startup
 if __name__ == '__main__':
@@ -180,6 +180,7 @@ class Account(db.Model):
     newspaper_type = db.Column(db.String(20), nullable=False, default='nyt')
     
     renewal_hours = db.Column(db.Integer, default=24)
+    renewal_interval = db.Column(db.Integer, nullable=True)  # Optional override, inherits from library if null
     active = db.Column(db.Boolean, default=True)
     last_renewal = db.Column(db.DateTime)
     next_renewal = db.Column(db.DateTime)
@@ -217,6 +218,20 @@ class Account(db.Model):
     @newspaper_password.setter  
     def newspaper_password(self, value):
         self.password = value
+    
+    @property
+    def effective_renewal_interval(self):
+        """Get the effective renewal interval - account override or library default"""
+        if self.renewal_interval is not None:
+            return self.renewal_interval
+        
+        # Look up library config for default
+        library = LibraryConfig.query.filter_by(type=self.library_type, active=True).first()
+        if library:
+            return library.default_renewal_hours
+        
+        # Fallback to system default
+        return self.renewal_hours or 24
 
 class LibraryConfig(db.Model):
     """Library configuration model"""
@@ -254,6 +269,7 @@ class AccountForm(FlaskForm):
     ], default='nyt')
     username = StringField('Newspaper Email', validators=[DataRequired()])
     password = PasswordField('Newspaper Password', validators=[DataRequired()])
+    renewal_interval = IntegerField('Renewal Interval Override (hours)', validators=[], required=False)
     active = BooleanField('Active', default=True)
 
 class LibraryForm(FlaskForm):
@@ -341,10 +357,11 @@ def add_account():
             username=form.username.data,
             password=form.password.data,
             renewal_hours=library_config.default_renewal_hours,
+            renewal_interval=form.renewal_interval.data if form.renewal_interval.data else None,
             active=form.active.data
         )
         
-        account.next_renewal = datetime.utcnow() + timedelta(hours=account.renewal_hours)
+        account.next_renewal = datetime.utcnow() + timedelta(hours=account.effective_renewal_interval)
         
         db.session.add(account)
         db.session.commit()
@@ -360,11 +377,23 @@ def add_account():
 def edit_account(id):
     """Edit existing account"""
     account = Account.query.get_or_404(id)
+    
+    # Store original passwords to preserve if not changed
+    original_library_password = account.library_password
+    original_password = account.password
+    
     form = AccountForm(obj=account)
     
     # Get available active library configurations from database
     library_configs = LibraryConfig.query.filter_by(active=True).all()
     form.library_type.choices = [(config.type, config.name) for config in library_configs]
+    
+    # Make password fields optional for editing
+    if request.method == 'GET':
+        form.library_password.validators = []
+        form.password.validators = []
+        form.library_password.data = ''
+        form.password.data = ''
     
     if form.validate_on_submit():
         # Find the library configuration to get renewal hours
@@ -376,15 +405,27 @@ def edit_account(id):
         account.name = form.name.data
         account.library_type = form.library_type.data
         account.library_username = form.library_username.data
-        account.library_password = form.library_password.data
+        
+        # Only update passwords if new values provided
+        if form.library_password.data:
+            account.library_password = form.library_password.data
+        else:
+            account.library_password = original_library_password
+            
         account.newspaper_type = form.newspaper_type.data
         account.username = form.username.data
-        account.password = form.password.data
+        
+        if form.password.data:
+            account.password = form.password.data
+        else:
+            account.password = original_password
+            
         account.renewal_hours = library_config.default_renewal_hours
+        account.renewal_interval = form.renewal_interval.data if form.renewal_interval.data else None
         account.active = form.active.data
         
         # Update next renewal time since renewal hours may have changed
-        account.next_renewal = datetime.utcnow() + timedelta(hours=account.renewal_hours)
+        account.next_renewal = datetime.utcnow() + timedelta(hours=account.effective_renewal_interval)
         
         db.session.commit()
         
@@ -865,15 +906,15 @@ def schedule_account_renewal(account):
         )
         logger.info(f"📅 Scheduled renewal for {account.name} ({account.newspaper_type.upper()}) at {next_run}")
     else:
-        # Fallback to interval-based scheduling
+        # Fallback to interval-based scheduling using effective interval
         scheduler.add_job(
             func=run_account_renewal,
-            trigger=IntervalTrigger(hours=account.renewal_hours, minutes=1),
+            trigger=IntervalTrigger(hours=account.effective_renewal_interval, minutes=1),
             id=job_id,
             args=[account.id],
             replace_existing=True
         )
-        logger.info(f"⏰ Scheduled renewal for {account.name} ({account.newspaper_type.upper()}) every {account.renewal_hours} hours")
+        logger.info(f"⏰ Scheduled renewal for {account.name} ({account.newspaper_type.upper()}) every {account.effective_renewal_interval} hours")
 
 def run_account_renewal(account_id):
     """Run renewal for a specific account (called by scheduler)"""
@@ -897,8 +938,8 @@ def run_account_renewal(account_id):
             logger.info(f"📅 Scheduled next renewal for {account.name} ({account.newspaper_type.upper()}) based on expiration: {account.next_renewal}")
         else:
             # Fallback to intervals + 1 minute when no expiration date available
-            account.next_renewal = datetime.utcnow() + timedelta(hours=account.renewal_hours, minutes=1)
-            logger.info(f"⏰ Scheduled next renewal for {account.name} ({account.newspaper_type.upper()}) using {account.renewal_hours}h 1m interval: {account.next_renewal}")
+            account.next_renewal = datetime.utcnow() + timedelta(hours=account.effective_renewal_interval, minutes=1)
+            logger.info(f"⏰ Scheduled next renewal for {account.name} ({account.newspaper_type.upper()}) using {account.effective_renewal_interval}h 1m interval: {account.next_renewal}")
         
         db.session.commit()
         
@@ -935,6 +976,27 @@ def init_db():
                 logger.info("Migration completed successfully")
             except Exception as e:
                 logger.error(f"Migration failed: {e}")
+                db.session.rollback()
+        
+        # Check if we need to add the renewal_interval column
+        needs_interval_migration = False
+        try:
+            # Try to query the renewal_interval column to see if it exists
+            db.session.execute(db.text("SELECT renewal_interval FROM account LIMIT 1"))
+        except Exception:
+            # Column doesn't exist, we need migration
+            needs_interval_migration = True
+            logger.info("renewal_interval column not found, will add it")
+        
+        if needs_interval_migration:
+            try:
+                # Add the renewal_interval column (nullable for inheritance)
+                logger.info("Adding renewal_interval column to account table")
+                db.session.execute(db.text("ALTER TABLE account ADD COLUMN renewal_interval INTEGER"))
+                db.session.commit()
+                logger.info("renewal_interval migration completed successfully")
+            except Exception as e:
+                logger.error(f"renewal_interval migration failed: {e}")
                 db.session.rollback()
         
         # Now create/update all tables

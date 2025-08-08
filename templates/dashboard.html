@@ -130,9 +130,25 @@
                                             <a href="{{ url_for('edit_account', id=account.id) }}" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20" title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <span class="px-2 py-1 rounded-full text-xs font-medium {% if account.active %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% else %}bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200{% endif %}">
-                                                <i class="fas fa-circle mr-1"></i>
-                                                {{ 'Active' if account.active else 'Inactive' }}
+                                            
+                                            <!-- Last Renewal Status Indicator -->
+                                            {% if account.id in account_statuses %}
+                                                {% set status = account_statuses[account.id] %}
+                                                <span class="px-2 py-1 rounded-full text-xs font-medium {% if status.success %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% endif %}" title="Last renewal: {{ status.timestamp|localtime }} - {{ status.message }}">
+                                                    <i class="fas {% if status.success %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} mr-1"></i>
+                                                    {{ 'Success' if status.success else 'Failed' }}
+                                                </span>
+                                            {% else %}
+                                                <span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300" title="No renewal attempts yet">
+                                                    <i class="fas fa-question-circle mr-1"></i>
+                                                    No Data
+                                                </span>
+                                            {% endif %}
+                                            
+                                            <!-- Auto-Renewal Status Indicator -->
+                                            <span class="px-2 py-1 rounded-full text-xs font-medium {% if account.active %}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200{% else %}bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200{% endif %}" title="Auto-renewal {{ 'enabled' if account.active else 'disabled' }}">
+                                                <i class="fas fa-robot mr-1"></i>
+                                                Auto: {{ 'On' if account.active else 'Off' }}
                                             </span>
                                         </div>
                                     </div>

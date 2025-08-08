@@ -33,7 +33,7 @@ from library_adapters import LibraryAdapterFactory
 from renewal_engine import RenewalEngine
 
 # Application version
-__version__ = '0.5.23'
+__version__ = '0.5.24'
 
 # Validate configuration at startup
 if __name__ == '__main__':
@@ -328,6 +328,19 @@ def index():
     if active_accounts_with_renewal:
         next_renewal = min(active_accounts_with_renewal, key=lambda x: x.next_renewal)
     
+    # Get latest renewal status for each account
+    account_statuses = {}
+    for account in accounts:
+        latest_log = RenewalLog.query.filter_by(account_id=account.id).order_by(
+            RenewalLog.timestamp.desc()
+        ).first()
+        if latest_log:
+            account_statuses[account.id] = {
+                'success': latest_log.success,
+                'message': latest_log.message,
+                'timestamp': latest_log.timestamp
+            }
+    
     # Create libraries mapping for template
     libraries = {lib.type: lib.name for lib in LibraryConfig.query.all()}
     
@@ -339,14 +352,29 @@ def index():
                          success_rate=success_rate,
                          account_count=total_accounts,
                          next_renewal=next_renewal,
-                         libraries=libraries)
+                         libraries=libraries,
+                         account_statuses=account_statuses)
 
 @app.route('/accounts')
 def accounts():
     """Account management page"""
     accounts = Account.query.all()
+    
+    # Get latest renewal status for each account
+    account_statuses = {}
+    for account in accounts:
+        latest_log = RenewalLog.query.filter_by(account_id=account.id).order_by(
+            RenewalLog.timestamp.desc()
+        ).first()
+        if latest_log:
+            account_statuses[account.id] = {
+                'success': latest_log.success,
+                'message': latest_log.message,
+                'timestamp': latest_log.timestamp
+            }
+    
     libraries = {lib.type: lib.name for lib in LibraryConfig.query.all()}
-    return render_template('accounts.html', accounts=accounts, libraries=libraries)
+    return render_template('accounts.html', accounts=accounts, libraries=libraries, account_statuses=account_statuses)
 
 @app.route('/accounts/add', methods=['GET', 'POST'])
 def add_account():

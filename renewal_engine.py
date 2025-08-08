@@ -62,17 +62,9 @@ class RenewalEngine:
         
         # Log the renewal start as the VERY FIRST thing
         logger.info("")
-        # Import version
-        try:
-            from app import __version__
-            version = __version__
-        except:
-            version = "Unknown"
-            
         logger.info("=" * 60)
         logger.info(f"STARTING RENEWAL for {account.name} ({account.newspaper_type.upper()})")
         logger.info("=" * 60)
-        logger.info(f"Version: {version}")
         logger.info(f"Library: {library_name}")
         logger.info(f"Newspaper: {account.newspaper_type.upper()}")
         logger.info(f"Timeout: {self.timeout}s")
@@ -660,15 +652,22 @@ class RenewalEngine:
                     logger.info(f"First checkbox (marketing) is selected: {first_checkbox.is_selected()}")
                     logger.info(f"Second checkbox (terms) is selected: {second_checkbox.is_selected()}")
                     
+                    # Use JavaScript to manipulate checkboxes since regular click doesn't work
                     # Uncheck first checkbox if it's checked (it's pre-checked by WSJ)
                     if first_checkbox.is_selected():
-                        first_checkbox.click()
+                        driver.execute_script("""
+                            arguments[0].checked = false;
+                            arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+                        """, first_checkbox)
                         self._human_delay('small')
                         logger.info("❌ Unchecked first checkbox (marketing - pre-checked by WSJ)")
                     
                     # Check second checkbox if it's not checked
                     if not second_checkbox.is_selected():
-                        second_checkbox.click()
+                        driver.execute_script("""
+                            arguments[0].checked = true;
+                            arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+                        """, second_checkbox)
                         self._human_delay('small')
                         logger.info("✅ Checked second checkbox (terms agreement)")
                         terms_checked = True

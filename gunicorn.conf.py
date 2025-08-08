@@ -10,8 +10,9 @@ backlog = 2048
 
 # Worker processes
 workers = 1  # Reduced to avoid permission issues
-worker_class = "sync"
+worker_class = "gthread"  # Use gthread for better request handling
 worker_connections = 1000
+threads = 2  # Allow multiple threads per worker
 timeout = 600  # 10 minutes to allow for CAPTCHA solving
 keepalive = 2
 
@@ -46,5 +47,5 @@ raw_env = [
 ]
 
 # Application settings
-preload_app = True
+preload_app = False  # Changed to False to avoid connection issues
 reload = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'

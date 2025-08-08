@@ -33,7 +33,7 @@ from library_adapters import LibraryAdapterFactory
 from renewal_engine import RenewalEngine
 
 # Application version
-__version__ = '0.5.21'
+__version__ = '0.5.22'
 
 # Validate configuration at startup
 if __name__ == '__main__':
@@ -55,14 +55,16 @@ app.config['SQLALCHEMY_DATABASE_URI'] = validated_config.get('DATABASE_URL', os.
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
-# Configure app to work behind proxy
-app.wsgi_app = ProxyFix(
-    app.wsgi_app,
-    x_for=1,
-    x_proto=1,
-    x_host=1,
-    x_prefix=1
-)
+# Configure app to work behind proxy (simplified to avoid double-processing)
+# Only enable if actually behind a proxy
+if os.environ.get('BEHIND_PROXY', 'false').lower() == 'true':
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app,
+        x_for=1,
+        x_proto=1,
+        x_host=1,
+        x_prefix=1
+    )
 
 # Add JSON filter for templates
 import json
@@ -389,9 +391,9 @@ def edit_account(id):
     form.library_type.choices = [(config.type, config.name) for config in library_configs]
     
     # Make password fields optional for editing
+    form.library_password.validators = []
+    form.password.validators = []
     if request.method == 'GET':
-        form.library_password.validators = []
-        form.password.validators = []
         form.library_password.data = ''
         form.password.data = ''
     
